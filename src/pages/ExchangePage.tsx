@@ -6,6 +6,7 @@ import {
   MapPin, Plane, Train, Bus, Hotel, Camera, UtensilsCrossed, Clock,
   Wallet, Globe, Trash2, Eye, EyeOff,
 } from "lucide-react";
+import "leaflet/dist/leaflet.css";
 import { useExchange } from "../features/exchange/store";
 import { PLACE_CFG, ITEM_CFG, EX_CAT_CFG, formatFX } from "../features/exchange/utils";
 import type { WishlistPlace, PlaceType, ItineraryItem, ItemType, ExTx, ExCat, ExConfig } from "../features/exchange/types";
