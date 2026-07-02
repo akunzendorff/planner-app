@@ -485,7 +485,7 @@ function LugaresTab() {
 
       {/* Add to day modal */}
       {addToDay && (
-        <div className="fixed inset-0 bg-foreground/20 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+        <div className="fixed inset-0 bg-foreground/20 backdrop-blur-sm z-[1000] flex items-center justify-center p-4"
           onClick={e => e.target === e.currentTarget && setAddToDay(null)}>
           <div className="bg-card border border-border rounded-2xl shadow-xl w-full max-w-xs p-6">
             <h3 className="text-lg font-medium mb-4">
@@ -689,7 +689,7 @@ function FinancasTab() {
 
 function ModalShell({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
   return (
-    <div className="fixed inset-0 bg-foreground/20 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+    <div className="fixed inset-0 bg-foreground/20 backdrop-blur-sm z-[1000] flex items-center justify-center p-4"
       onClick={e => e.target === e.currentTarget && onClose()}>
       <div className="bg-card border border-border rounded-2xl shadow-xl w-full max-w-sm p-6">
         <div className="flex items-center justify-between mb-5">
@@ -886,7 +886,7 @@ function ConfigModal({ config, onSave, onClose }: { config: ExConfig; onSave: (c
   };
 
   return (
-    <div className="fixed inset-0 bg-foreground/20 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+    <div className="fixed inset-0 bg-foreground/20 backdrop-blur-sm z-[1000] flex items-center justify-center p-4"
       onClick={e => e.target === e.currentTarget && onClose()}>
       <div className="bg-card border border-border rounded-2xl shadow-xl w-full max-w-sm p-6">
         <div className="flex items-center justify-between mb-5">
