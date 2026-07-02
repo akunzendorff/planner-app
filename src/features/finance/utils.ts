@@ -36,6 +36,10 @@ function matchesDate(tx: FinTx, date: string): boolean {
   const rec = tx.recurrence;
   if (!rec) return tx.date === date;
 
+  // Installments: exact date only (instances are pre-generated)
+  if (rec.type === "installment") return tx.date === date;
+
+  // Monthly: single instance spreads via recurrence logic
   const txDay = tx.date.slice(8, 10);
   const targetDay = date.slice(8, 10);
   if (txDay !== targetDay) return false;
@@ -43,7 +47,6 @@ function matchesDate(tx: FinTx, date: string): boolean {
   // Must be same month as target or earlier
   if (tx.date.slice(0, 7) > date.slice(0, 7)) return false;
 
-  // Check if this occurrence is within the recurrence range
   const startParts = tx.date.split("-").map(Number);
   const targetParts = date.split("-").map(Number);
   const diffMonths = (targetParts[0] - startParts[0]) * 12 + (targetParts[1] - startParts[1]);

@@ -27,21 +27,36 @@ const SEED_CARDS: CreditCard[] = [
 
 function generateInstances(data: { description: string; amount: number; type: FinTx["type"]; date: string; cardId?: string; recurrence: { type: "monthly" | "installment"; total: number } }): FinTx[] {
   const groupId = `g_${Date.now()}`;
-  const instances: FinTx[] = [];
-  const isInfinite = data.recurrence.total === 0;
-  const total = isInfinite ? 1 : data.recurrence.total;
-  const baseAmount = data.recurrence.type === "installment" ? data.amount / total : data.amount;
+  const isMonthly = data.recurrence.type === "monthly";
+  const total = data.recurrence.total === 0 ? 999 : data.recurrence.total;
 
+  if (isMonthly) {
+    // Monthly: only 1 instance; matchesDate spreads it across months
+    const d = parseDate(data.date);
+    return [{
+      id: `r${Date.now()}_0`,
+      type: data.type,
+      description: data.description,
+      amount: data.amount,
+      date: format(d, "yyyy-MM-dd"),
+      cardId: data.cardId,
+      recurrence: { type: "monthly", groupId, total, count: 1 },
+    }];
+  }
+
+  // Installment: separate instances per month, each matches exact date only
+  const baseAmount = data.amount / total;
+  const instances: FinTx[] = [];
   for (let i = 0; i < total; i++) {
     const d = i === 0 ? parseDate(data.date) : addMonths(parseDate(data.date), i);
     instances.push({
-      id: `${data.recurrence.type === "installment" ? "p" : "r"}${Date.now()}_${i}`,
+      id: `p${Date.now()}_${i}`,
       type: data.type,
-      description: data.description + (data.recurrence.type === "installment" ? ` (${i + 1}/${total})` : ""),
+      description: `${data.description} (${i + 1}/${total})`,
       amount: baseAmount,
       date: format(d, "yyyy-MM-dd"),
       cardId: data.cardId,
-      recurrence: { type: data.recurrence.type, groupId, total: isInfinite ? 0 : data.recurrence.total, count: i + 1 },
+      recurrence: { type: "installment", groupId, total, count: i + 1 },
     });
   }
   return instances;
