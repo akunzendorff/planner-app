@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import { isSameDay } from "date-fns";
 import { calendarApi } from "./api";
+import { loadFromStorage, saveToStorage } from "../../shared/lib/persist";
 import type { CalEvent, Goal, GoalTask } from "./types";
 
 const SEED_EVENTS: CalEvent[] = [
@@ -49,8 +50,8 @@ interface CalendarCtx {
 const Ctx = createContext<CalendarCtx | null>(null);
 
 export function CalendarProvider({ children }: { children: ReactNode }) {
-  const [events, setEvents] = useState<CalEvent[]>(SEED_EVENTS);
-  const [goals,  setGoals]  = useState<Goal[]>(SEED_GOALS);
+  const [events, setEvents] = useState<CalEvent[]>(loadFromStorage("calendar_events", SEED_EVENTS));
+  const [goals,  setGoals]  = useState<Goal[]>(loadFromStorage("calendar_goals", SEED_GOALS));
   const [seeded, setSeeded] = useState(false);
 
   // Load on mount
@@ -68,36 +69,60 @@ export function CalendarProvider({ children }: { children: ReactNode }) {
 
     const addEvent = (data: Omit<CalEvent, "id">): CalEvent => {
     const ev: CalEvent = { id: `e${Date.now()}`, ...data };
-    setEvents(p => [...p, ev]);
+    setEvents(p => {
+      const next = [...p, ev];
+      saveToStorage("calendar_events", next);
+      return next;
+    });
     calendarApi.createEvent(ev).catch(console.error);
     return ev;
   };
 
   const updateEvent = (id: string, data: Omit<CalEvent, "id">) => {
-    setEvents(p => p.map(e => e.id === id ? { id, ...data } : e));
+    setEvents(p => {
+      const next = p.map(e => e.id === id ? { id, ...data } : e);
+      saveToStorage("calendar_events", next);
+      return next;
+    });
     calendarApi.updateEvent(id, data).catch(console.error);
   };
 
   const deleteEvent = (id: string) => {
-    setEvents(p => p.filter(e => e.id !== id));
+    setEvents(p => {
+      const next = p.filter(e => e.id !== id);
+      saveToStorage("calendar_events", next);
+      return next;
+    });
     calendarApi.deleteEvent(id).catch(console.error);
   };
 
     const addGoal = (data: Omit<Goal, "id" | "tasks">): Goal => {
     const g: Goal = { id: `g${Date.now()}`, tasks: [], ...data };
-    setGoals(p => [...p, g]);
+    setGoals(p => {
+      const next = [...p, g];
+      saveToStorage("calendar_goals", next);
+      return next;
+    });
     calendarApi.createGoal(g).catch(console.error);
     return g;
   };
 
   const updateGoal = (id: string, data: Omit<Goal, "id" | "tasks">) => {
-    setGoals(p => p.map(g => g.id === id ? { ...g, ...data } : g));
+    setGoals(p => {
+      const next = p.map(g => g.id === id ? { ...g, ...data } : g);
+      saveToStorage("calendar_goals", next);
+      return next;
+    });
     const goal = goals.find(g => g.id === id);
     if (goal) calendarApi.updateGoal(id, { ...goal, ...data }).catch(console.error);
   };
 
   const deleteGoal = (id: string) => {
-    setGoals(p => p.filter(g => g.id !== id));
+    setGoals(p => {
+      const next = p.filter(g => g.id !== id);
+      saveToStorage("calendar_goals", next);
+      return next;
+    });
     calendarApi.deleteGoal(id).catch(console.error);
   };
 
@@ -106,6 +131,7 @@ export function CalendarProvider({ children }: { children: ReactNode }) {
       const updated = p.map(g => g.id !== goalId ? g : { ...g, tasks: updater(g.tasks) });
       const goal = updated.find(g => g.id === goalId);
       if (goal) calendarApi.updateGoal(goalId, goal).catch(console.error);
+      saveToStorage("calendar_goals", updated);
       return updated;
     });
   };

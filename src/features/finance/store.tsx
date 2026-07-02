@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import { financeApi } from "./api";
+import { loadFromStorage, saveToStorage } from "../../shared/lib/persist";
 import type { FinTx, CreditCard } from "./types";
 
 const SEED_TXS: FinTx[] = [
@@ -39,8 +40,8 @@ interface FinanceCtx {
 const Ctx = createContext<FinanceCtx | null>(null);
 
 export function FinanceProvider({ children }: { children: ReactNode }) {
-  const [transactions, setTransactions] = useState<FinTx[]>(SEED_TXS);
-  const [cards,        setCards]        = useState<CreditCard[]>(SEED_CARDS);
+  const [transactions, setTransactions] = useState<FinTx[]>(loadFromStorage("finance_transactions", SEED_TXS));
+  const [cards,        setCards]        = useState<CreditCard[]>(loadFromStorage("finance_cards", SEED_CARDS));
 
   useEffect(() => {
     Promise.all([financeApi.getTransactions(), financeApi.getCards()])
@@ -53,29 +54,53 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
 
   const addTx = (data: Omit<FinTx, "id">) => {
     const tx: FinTx = { id: `f${Date.now()}`, ...data };
-    setTransactions(p => [...p, tx]);
+    setTransactions(p => {
+      const next = [...p, tx];
+      saveToStorage("finance_transactions", next);
+      return next;
+    });
     financeApi.createTransaction(tx).catch(console.error);
   };
   const updateTx = (id: string, data: Omit<FinTx, "id">) => {
-    setTransactions(p => p.map(t => t.id === id ? { id, ...data } : t));
+    setTransactions(p => {
+      const next = p.map(t => t.id === id ? { id, ...data } : t);
+      saveToStorage("finance_transactions", next);
+      return next;
+    });
     financeApi.updateTransaction(id, data).catch(console.error);
   };
   const deleteTx = (id: string) => {
-    setTransactions(p => p.filter(t => t.id !== id));
+    setTransactions(p => {
+      const next = p.filter(t => t.id !== id);
+      saveToStorage("finance_transactions", next);
+      return next;
+    });
     financeApi.deleteTransaction(id).catch(console.error);
   };
 
   const addCard = (data: Omit<CreditCard, "id">) => {
     const c: CreditCard = { id: `c${Date.now()}`, ...data };
-    setCards(p => [...p, c]);
+    setCards(p => {
+      const next = [...p, c];
+      saveToStorage("finance_cards", next);
+      return next;
+    });
     financeApi.createCard(c).catch(console.error);
   };
   const updateCard = (id: string, data: Omit<CreditCard, "id">) => {
-    setCards(p => p.map(c => c.id === id ? { id, ...data } : c));
+    setCards(p => {
+      const next = p.map(c => c.id === id ? { id, ...data } : c);
+      saveToStorage("finance_cards", next);
+      return next;
+    });
     financeApi.updateCard(id, data).catch(console.error);
   };
   const deleteCard = (id: string) => {
-    setCards(p => p.filter(c => c.id !== id));
+    setCards(p => {
+      const next = p.filter(c => c.id !== id);
+      saveToStorage("finance_cards", next);
+      return next;
+    });
     financeApi.deleteCard(id).catch(console.error);
   };
 

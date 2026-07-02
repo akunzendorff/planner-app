@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import { exchangeApi } from "./api";
+import { loadFromStorage, saveToStorage } from "../../shared/lib/persist";
 import type { WishlistPlace, ItineraryItem, ExTx, ExConfig } from "./types";
 
 const DEFAULT_CONFIG: ExConfig = {
@@ -48,10 +49,10 @@ interface ExchangeCtx {
 const Ctx = createContext<ExchangeCtx | null>(null);
 
 export function ExchangeProvider({ children }: { children: ReactNode }) {
-  const [config, setConfigState] = useState<ExConfig>(DEFAULT_CONFIG);
-  const [places, setPlaces]      = useState<WishlistPlace[]>(SEED_PLACES);
-  const [items,  setItems]       = useState<ItineraryItem[]>(SEED_ITEMS);
-  const [txs,    setTxs]         = useState<ExTx[]>(SEED_TXS);
+  const [config, setConfigState] = useState<ExConfig>(loadFromStorage("exchange_config", DEFAULT_CONFIG));
+  const [places, setPlaces]      = useState<WishlistPlace[]>(loadFromStorage("exchange_places", SEED_PLACES));
+  const [items,  setItems]       = useState<ItineraryItem[]>(loadFromStorage("exchange_items", SEED_ITEMS));
+  const [txs,    setTxs]         = useState<ExTx[]>(loadFromStorage("exchange_txs", SEED_TXS));
 
   useEffect(() => {
     Promise.all([
@@ -69,48 +70,85 @@ export function ExchangeProvider({ children }: { children: ReactNode }) {
 
   const setConfig = (c: ExConfig) => {
     setConfigState(c);
+    saveToStorage("exchange_config", c);
     exchangeApi.setConfig(c).catch(console.error);
   };
 
   const addPlace = (data: Omit<WishlistPlace, "id">) => {
     const p: WishlistPlace = { id: `p${Date.now()}`, ...data };
-    setPlaces(prev => [...prev, p]);
+    setPlaces(prev => {
+      const next = [...prev, p];
+      saveToStorage("exchange_places", next);
+      return next;
+    });
     exchangeApi.createPlace(p).catch(console.error);
   };
   const updatePlace = (id: string, data: Omit<WishlistPlace, "id">) => {
-    setPlaces(prev => prev.map(x => x.id === id ? { id, ...data } : x));
+    setPlaces(prev => {
+      const next = prev.map(x => x.id === id ? { id, ...data } : x);
+      saveToStorage("exchange_places", next);
+      return next;
+    });
     exchangeApi.updatePlace(id, data).catch(console.error);
   };
   const deletePlace = (id: string) => {
-    setPlaces(prev => prev.filter(x => x.id !== id));
+    setPlaces(prev => {
+      const next = prev.filter(x => x.id !== id);
+      saveToStorage("exchange_places", next);
+      return next;
+    });
     exchangeApi.deletePlace(id).catch(console.error);
   };
 
   const addItem = (data: Omit<ItineraryItem, "id">) => {
     const i: ItineraryItem = { id: `i${Date.now()}`, ...data };
-    setItems(prev => [...prev, i]);
+    setItems(prev => {
+      const next = [...prev, i];
+      saveToStorage("exchange_items", next);
+      return next;
+    });
     exchangeApi.createItem(i).catch(console.error);
   };
   const updateItem = (id: string, data: Omit<ItineraryItem, "id">) => {
-    setItems(prev => prev.map(x => x.id === id ? { id, ...data } : x));
+    setItems(prev => {
+      const next = prev.map(x => x.id === id ? { id, ...data } : x);
+      saveToStorage("exchange_items", next);
+      return next;
+    });
     exchangeApi.updateItem(id, data).catch(console.error);
   };
   const deleteItem = (id: string) => {
-    setItems(prev => prev.filter(x => x.id !== id));
+    setItems(prev => {
+      const next = prev.filter(x => x.id !== id);
+      saveToStorage("exchange_items", next);
+      return next;
+    });
     exchangeApi.deleteItem(id).catch(console.error);
   };
 
   const addTx = (data: Omit<ExTx, "id">) => {
     const t: ExTx = { id: `x${Date.now()}`, ...data };
-    setTxs(prev => [...prev, t]);
+    setTxs(prev => {
+      const next = [...prev, t];
+      saveToStorage("exchange_txs", next);
+      return next;
+    });
     exchangeApi.createTx(t).catch(console.error);
   };
   const updateTx = (id: string, data: Omit<ExTx, "id">) => {
-    setTxs(prev => prev.map(x => x.id === id ? { id, ...data } : x));
+    setTxs(prev => {
+      const next = prev.map(x => x.id === id ? { id, ...data } : x);
+      saveToStorage("exchange_txs", next);
+      return next;
+    });
     exchangeApi.updateTx(id, data).catch(console.error);
   };
   const deleteTx = (id: string) => {
-    setTxs(prev => prev.filter(x => x.id !== id));
+    setTxs(prev => {
+      const next = prev.filter(x => x.id !== id);
+      saveToStorage("exchange_txs", next);
+      return next;
+    });
     exchangeApi.deleteTx(id).catch(console.error);
   };
 
