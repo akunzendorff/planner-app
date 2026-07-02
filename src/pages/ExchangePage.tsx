@@ -600,30 +600,39 @@ function FinancasTab() {
 
   const year = viewDate.getFullYear();
   const month = viewDate.getMonth();
+  const monthPrefix = `${year}-${String(month + 1).padStart(2, "0")}`;
+
+  const initialBalance = useMemo(() =>
+    txs
+      .filter(tx => tx.date < monthPrefix)
+      .reduce((s, tx) => s + (tx.type === "entrada" ? tx.amount : -tx.amount), 0),
+    [txs, monthPrefix],
+  );
 
   const monthTxs = useMemo(() =>
-    txs.filter(tx => tx.date.startsWith(`${year}-${String(month + 1).padStart(2, "0")}`)),
-    [txs, year, month],
+    txs.filter(tx => tx.date.startsWith(monthPrefix)),
+    [txs, monthPrefix],
   );
 
   const dayData = useMemo(() => {
     const numDays = getDaysInMonth(viewDate);
-    const result: { day: number; dateStr: string; txs: ExTx[] }[] = [];
-    let running = 0;
+    const result: { day: number; dateStr: string; txs: ExTx[]; dailyBalance: number }[] = [];
+    let running = initialBalance;
     for (let d = 1; d <= numDays; d++) {
-      const dateStr = `${year}-${String(month + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+      const dateStr = `${monthPrefix}-${String(d).padStart(2, "0")}`;
       const dayTxs = monthTxs.filter(tx => tx.date === dateStr);
       for (const tx of dayTxs) {
         running += tx.type === "entrada" ? tx.amount : -tx.amount;
       }
-      result.push({ day: d, dateStr, txs: dayTxs });
+      result.push({ day: d, dateStr, txs: dayTxs, dailyBalance: running });
     }
     return result;
-  }, [monthTxs, year, month, viewDate]);
+  }, [monthTxs, monthPrefix, viewDate, initialBalance]);
 
   const monthIncome = monthTxs.filter(t => t.type === "entrada").reduce((s, t) => s + t.amount, 0);
   const monthExpense = monthTxs.filter(t => t.type === "saida" || t.type === "diario").reduce((s, t) => s + t.amount, 0);
   const monthBalance = monthIncome - monthExpense;
+  const lastSaldo = dayData.length > 0 ? dayData[dayData.length - 1].dailyBalance : initialBalance;
 
   const totalSpent = txs.filter(t => t.type === "saida" || t.type === "diario").reduce((s, t) => s + t.amount, 0);
   const totalIncome = txs.filter(t => t.type === "entrada").reduce((s, t) => s + t.amount, 0);
@@ -688,10 +697,10 @@ function FinancasTab() {
           </p>
         </div>
         <div className="bg-card border border-border rounded-xl px-4 py-3">
-          <p className="text-[10px] text-muted-foreground uppercase tracking-widest mb-1" style={{ fontFamily: "'DM Mono', monospace" }}>Saldo do mês</p>
-          <p className={`text-sm font-semibold tabular-nums ${monthBalance >= 0 ? "text-emerald-600" : "text-red-600"}`}
+          <p className="text-[10px] text-muted-foreground uppercase tracking-widest mb-1" style={{ fontFamily: "'DM Mono', monospace" }}>Saldo acumulado</p>
+          <p className={`text-sm font-semibold tabular-nums ${lastSaldo >= 0 ? "text-emerald-600" : "text-red-600"}`}
             style={{ fontFamily: "'DM Mono', monospace" }}>
-            {formatFX(monthBalance, config.currencySymbol)}
+            {formatFX(lastSaldo, config.currencySymbol)}
           </p>
         </div>
         <div className="bg-card border border-border rounded-xl px-4 py-3">
@@ -721,9 +730,7 @@ function FinancasTab() {
               <ExDayRow
                 key={d.day}
                 day={d.day} dateStr={d.dateStr} txs={d.txs}
-                saldo={dayData.slice(0, d.day).reduce((s, dd) => {
-                  return s + dd.txs.reduce((ss, tx) => ss + (tx.type === "entrada" ? tx.amount : -tx.amount), 0);
-                }, 0)}
+                saldo={d.dailyBalance}
                 symbol={config.currencySymbol}
                 onAdd={date => setTxModal({ mode: "add", prefillDate: date })}
                 onEdit={tx => setTxModal({ mode: "edit", tx })}
