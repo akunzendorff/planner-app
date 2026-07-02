@@ -48,7 +48,7 @@ function matchesDate(tx: FinTx, date: string): boolean {
   const targetParts = date.split("-").map(Number);
   const diffMonths = (targetParts[0] - startParts[0]) * 12 + (targetParts[1] - startParts[1]);
 
-  return diffMonths >= 0 && diffMonths < rec.total;
+  return diffMonths >= 0 && (rec.total === 0 || diffMonths < rec.total);
 }
 
 function reconcileBusinessDay(tx: FinTx, year: number, month: number): string {

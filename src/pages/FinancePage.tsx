@@ -112,6 +112,7 @@ function TxModal({
   const [cardId, setCardId]     = useState(init?.cardId ?? (cards[0]?.id ?? ""));
   const [recType, setRecType]   = useState<"none" | "monthly" | "installment">(init?.recurrence ? init.recurrence.type : "none");
   const [recTotal, setRecTotal] = useState(init?.recurrence ? String(init.recurrence.total) : "12");
+  const [ongoing, setOngoing]   = useState(init?.recurrence ? init.recurrence.total === 0 : false);
 
   const submit = () => {
     const n = parseFloat(amount.replace(",", "."));
@@ -120,7 +121,7 @@ function TxModal({
       type, description: description.trim(), amount: n, date,
       cardId: type === "cartao" ? cardId : undefined,
       recurrenceType: isEdit ? undefined : recType,
-      recurrenceTotal: !isEdit && recType !== "none" ? parseInt(recTotal, 10) || 2 : undefined,
+      recurrenceTotal: !isEdit && recType !== "none" ? (ongoing ? 0 : parseInt(recTotal, 10) || 2) : undefined,
     });
   };
 
@@ -202,19 +203,28 @@ function TxModal({
               </div>
 
               {recType !== "none" && (
-                <div className="flex items-center gap-3">
-                  <label className="text-xs text-muted-foreground">
-                    {recType === "monthly" ? "Repetir por" : "Parcelar em"}
-                  </label>
-                  <input type="number" min={2} max={999} value={recTotal} onChange={e => setRecTotal(e.target.value)}
-                    className="w-16 px-2 py-1.5 text-sm rounded-lg bg-secondary border border-border text-center focus:outline-none focus:ring-2 focus:ring-accent/30 transition-all" style={{ fontFamily: "'DM Mono', monospace" }} />
-                  <span className="text-xs text-muted-foreground">
-                    {recType === "monthly" ? "meses" : "vezes"}
-                  </span>
-                  {recType === "installment" && amount && !isNaN(parseFloat(amount.replace(",", "."))) && (
-                    <span className="text-xs text-muted-foreground ml-auto">
-                      {formatBRL(parseFloat(amount.replace(",", ".")) / parseInt(recTotal, 10))}/mês
+                <div className="space-y-2">
+                  <div className="flex items-center gap-3">
+                    <label className="text-xs text-muted-foreground">
+                      {recType === "monthly" ? "Repetir por" : "Parcelar em"}
+                    </label>
+                    <input type="number" min={2} max={999} value={recTotal} onChange={e => setRecTotal(e.target.value)}
+                      disabled={ongoing}
+                      className="w-16 px-2 py-1.5 text-sm rounded-lg bg-secondary border border-border text-center focus:outline-none focus:ring-2 focus:ring-accent/30 transition-all disabled:opacity-30" style={{ fontFamily: "'DM Mono', monospace" }} />
+                    <span className="text-xs text-muted-foreground">
+                      {recType === "monthly" ? "meses" : "vezes"}
                     </span>
+                    {recType === "installment" && amount && !isNaN(parseFloat(amount.replace(",", "."))) && (
+                      <span className="text-xs text-muted-foreground ml-auto">
+                        {formatBRL(parseFloat(amount.replace(",", ".")) / parseInt(recTotal, 10))}/mês
+                      </span>
+                    )}
+                  </div>
+                  {recType === "monthly" && (
+                    <label className="flex items-center gap-2 text-xs cursor-pointer text-muted-foreground hover:text-foreground transition-colors">
+                      <input type="checkbox" checked={ongoing} onChange={e => setOngoing(e.target.checked)} className="rounded" />
+                      Sem prazo (não expira)
+                    </label>
                   )}
                 </div>
               )}

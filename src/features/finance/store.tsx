@@ -28,18 +28,20 @@ const SEED_CARDS: CreditCard[] = [
 function generateInstances(data: { description: string; amount: number; type: FinTx["type"]; date: string; cardId?: string; recurrence: { type: "monthly" | "installment"; total: number } }): FinTx[] {
   const groupId = `g_${Date.now()}`;
   const instances: FinTx[] = [];
-  const baseAmount = data.recurrence.type === "installment" ? data.amount / data.recurrence.total : data.amount;
+  const isInfinite = data.recurrence.total === 0;
+  const total = isInfinite ? 1 : data.recurrence.total;
+  const baseAmount = data.recurrence.type === "installment" ? data.amount / total : data.amount;
 
-  for (let i = 0; i < data.recurrence.total; i++) {
+  for (let i = 0; i < total; i++) {
     const d = i === 0 ? parseDate(data.date) : addMonths(parseDate(data.date), i);
     instances.push({
       id: `${data.recurrence.type === "installment" ? "p" : "r"}${Date.now()}_${i}`,
       type: data.type,
-      description: data.description + (data.recurrence.type === "installment" ? ` (${i + 1}/${data.recurrence.total})` : ""),
+      description: data.description + (data.recurrence.type === "installment" ? ` (${i + 1}/${total})` : ""),
       amount: baseAmount,
       date: format(d, "yyyy-MM-dd"),
       cardId: data.cardId,
-      recurrence: { type: data.recurrence.type, groupId, total: data.recurrence.total, count: i + 1 },
+      recurrence: { type: data.recurrence.type, groupId, total: isInfinite ? 0 : data.recurrence.total, count: i + 1 },
     });
   }
   return instances;
@@ -80,7 +82,8 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
 
   const addTx = (data: Omit<FinTx, "id"> & { recurrenceType?: "none" | "monthly" | "installment"; recurrenceTotal?: number }) => {
     const { recurrenceType, recurrenceTotal, ...rest } = data;
-    const hasRecurrence = recurrenceType && recurrenceType !== "none" && recurrenceTotal && recurrenceTotal > 1;
+    const total = recurrenceTotal ?? 0;
+    const hasRecurrence = recurrenceType && recurrenceType !== "none" && (total > 1 || total === 0);
 
     if (hasRecurrence) {
       const instances = generateInstances({
