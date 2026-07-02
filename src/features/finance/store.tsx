@@ -136,9 +136,30 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const updateTx = (id: string, data: Omit<FinTx, "id">) => {
+  const updateTx = (id: string, data: Omit<FinTx, "id">, scope: DeleteScope = "this") => {
     setTransactions(p => {
-      const next = p.map(t => t.id === id ? { id, ...data } : t);
+      const target = p.find(t => t.id === id);
+      if (!target) return p;
+
+      if (!target.recurrence || scope === "this") {
+        const next = p.map(t => t.id === id ? { ...t, ...data } : t);
+        saveToStorage("finance_transactions", next);
+        return next;
+      }
+
+      const gid = target.recurrence.groupId;
+      if (scope === "future") {
+        const next = p.map(t => {
+          if (t.recurrence?.groupId !== gid) return t;
+          if (t.date < target.date && t.recurrence.count < target.recurrence.count) return t;
+          return { ...t, ...data };
+        });
+        saveToStorage("finance_transactions", next);
+        return next;
+      }
+
+      // "all"
+      const next = p.map(t => t.recurrence?.groupId === gid ? { ...t, ...data } : t);
       saveToStorage("finance_transactions", next);
       return next;
     });

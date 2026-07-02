@@ -563,10 +563,16 @@ export default function FinancePage() {
 
   const lastSaldo = monthData[monthData.length - 1]?.saldo ?? 0;
 
+  const [editPending, setEditPending] = useState<Omit<FinTx, "id"> | null>(null);
+
   const saveTx = (tx: Omit<FinTx, "id"> & { recurrenceType?: "none" | "monthly" | "installment"; recurrenceTotal?: number }) => {
     if (txModal.mode === "add") addTx(tx);
     else if (txModal.mode === "edit") {
       const { recurrenceType, recurrenceTotal, ...rest } = tx;
+      if (txModal.tx.recurrence) {
+        setEditPending(rest);
+        return;
+      }
       updateTx(txModal.tx.id, rest);
     }
     setTxModal({ mode: "closed" });
@@ -577,6 +583,13 @@ export default function FinancePage() {
   const confirmDelete = (scope: DeleteScope) => {
     if (deleteTarget) deleteTx(deleteTarget.id, scope);
     setDeleteTarget(null);
+    setTxModal({ mode: "closed" });
+  };
+  const confirmEdit = (scope: DeleteScope) => {
+    if (editPending && txModal.mode === "edit") {
+      updateTx(txModal.tx.id, editPending, scope);
+    }
+    setEditPending(null);
     setTxModal({ mode: "closed" });
   };
   const saveCard = (c: Omit<CreditCard, "id">) => {
@@ -867,7 +880,48 @@ export default function FinancePage() {
         />
       )}
 
-      {txModal.mode !== "closed" && !deleteTarget && (
+      {editPending && txModal.mode === "edit" && (
+        <div className="fixed inset-0 bg-foreground/20 backdrop-blur-sm z-[60] flex items-center justify-center p-4"
+          onClick={e => e.target === e.currentTarget && setEditPending(null)}>
+          <div className="bg-card border border-border rounded-2xl shadow-xl w-full max-w-sm p-6">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 rounded-full bg-accent/10 flex items-center justify-center flex-shrink-0">
+                <Pencil size={18} className="text-accent" />
+              </div>
+              <div>
+                <h3 className="font-medium">Editar movimentação</h3>
+                <p className="text-xs text-muted-foreground mt-0.5">{txModal.tx.description}</p>
+              </div>
+            </div>
+            <p className="text-sm text-muted-foreground mb-4">
+              Esta movimentação faz parte de uma recorrência. O que deseja editar?
+            </p>
+            <div className="space-y-2">
+              <button onClick={() => confirmEdit("this")}
+                className="w-full text-left px-4 py-2.5 text-sm rounded-lg hover:bg-secondary transition-colors border border-border">
+                <p className="font-medium">Apenas esta</p>
+                <p className="text-xs text-muted-foreground mt-0.5">Altera somente esta ocorrência</p>
+              </button>
+              <button onClick={() => confirmEdit("future")}
+                className="w-full text-left px-4 py-2.5 text-sm rounded-lg hover:bg-secondary transition-colors border border-border">
+                <p className="font-medium">Esta e as futuras</p>
+                <p className="text-xs text-muted-foreground mt-0.5">Mantém as anteriores</p>
+              </button>
+              <button onClick={() => confirmEdit("all")}
+                className="w-full text-left px-4 py-2.5 text-sm rounded-lg hover:bg-secondary transition-colors border border-border">
+                <p className="font-medium">Todas</p>
+                <p className="text-xs text-muted-foreground mt-0.5">Altera todas as ocorrências (passadas e futuras)</p>
+              </button>
+            </div>
+            <button onClick={() => setEditPending(null)}
+              className="w-full mt-3 py-2.5 text-sm rounded-lg hover:bg-secondary transition-colors text-muted-foreground">
+              Cancelar
+            </button>
+          </div>
+        </div>
+      )}
+
+      {txModal.mode !== "closed" && !deleteTarget && !editPending && (
         <TxModal
           state={txModal}
           cards={cards}
