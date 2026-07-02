@@ -1,10 +1,10 @@
 import React, { useState, useMemo } from "react";
-import { ChevronLeft, ChevronRight, Plus, X, Pencil, CreditCard as CreditCardIcon, Trash2 } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, X, Pencil, CreditCard as CreditCardIcon, Trash2, AlertTriangle } from "lucide-react";
 import { format, addMonths, subMonths, getDaysInMonth } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { useFinance } from "../features/finance/store";
 import { computeMonthData, computeCardFatura, formatBRL, TX_CFG, type DayData } from "../features/finance/utils";
-import type { FinTx, TxType, CreditCard } from "../features/finance/types";
+import type { FinTx, TxType, CreditCard, DeleteScope } from "../features/finance/types";
 
 const TX_TYPES: TxType[] = ["entrada", "saida", "diario", "economia", "cartao"];
 const CARD_COLORS = ["#8B47FF", "#FF7A00", "#1A7A7A", "#C4581B", "#2C7A4B", "#3B6FA0"];
@@ -32,12 +32,73 @@ function TxIcon({ type, size = 20 }: { type: TxType; size?: number }) {
   );
 }
 
+function DeleteDialog({
+  tx, onConfirm, onClose,
+}: {
+  tx: FinTx;
+  onConfirm: (scope: DeleteScope) => void;
+  onClose: () => void;
+}) {
+  const isRecurring = !!tx.recurrence;
+  const label = tx.recurrence?.type === "installment" ? "parcelamento" : "recorrência";
+
+  return (
+    <div className="fixed inset-0 bg-foreground/20 backdrop-blur-sm z-[60] flex items-center justify-center p-4"
+      onClick={e => e.target === e.currentTarget && onClose()}>
+      <div className="bg-card border border-border rounded-2xl shadow-xl w-full max-w-sm p-6">
+        <div className="flex items-center gap-3 mb-4">
+          <div className="w-10 h-10 rounded-full bg-destructive/10 flex items-center justify-center flex-shrink-0">
+            <AlertTriangle size={18} className="text-destructive" />
+          </div>
+          <div>
+            <h3 className="font-medium">Excluir movimentação</h3>
+            <p className="text-xs text-muted-foreground mt-0.5">{tx.description}</p>
+          </div>
+        </div>
+
+        <p className="text-sm text-muted-foreground mb-4">
+          {isRecurring
+            ? `Esta movimentação faz parte de uma ${label}. O que deseja excluir?`
+            : "Tem certeza que deseja excluir esta movimentação?"}
+        </p>
+
+        <div className="space-y-2">
+          {isRecurring && (
+            <>
+              <button onClick={() => onConfirm("this")}
+                className="w-full text-left px-4 py-2.5 text-sm rounded-lg hover:bg-secondary transition-colors border border-border">
+                <p className="font-medium">Apenas esta</p>
+                <p className="text-xs text-muted-foreground mt-0.5">Exclui somente esta ocorrência</p>
+              </button>
+              <button onClick={() => onConfirm("future")}
+                className="w-full text-left px-4 py-2.5 text-sm rounded-lg hover:bg-secondary transition-colors border border-border">
+                <p className="font-medium">Esta e as futuras</p>
+                <p className="text-xs text-muted-foreground mt-0.5">Mantém as anteriores</p>
+              </button>
+            </>
+          )}
+          <button onClick={() => onConfirm(isRecurring ? "all" : "this")}
+            className={`w-full text-left px-4 py-2.5 text-sm rounded-lg transition-colors border ${isRecurring ? "border-destructive/30 text-destructive hover:bg-destructive/10" : "border-border hover:bg-secondary"}`}>
+            <p className="font-medium">{isRecurring ? "Todas" : "Sim, excluir"}</p>
+            {isRecurring && <p className="text-xs text-muted-foreground mt-0.5">Exclui todas as ocorrências (passadas e futuras)</p>}
+          </button>
+        </div>
+
+        <button onClick={onClose}
+          className="w-full mt-3 py-2.5 text-sm rounded-lg hover:bg-secondary transition-colors text-muted-foreground">
+          Cancelar
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function TxModal({
   state, cards, onSave, onDelete, onClose,
 }: {
   state: Exclude<ModalState, { mode: "closed" }>;
   cards: CreditCard[];
-  onSave: (tx: Omit<FinTx, "id">) => void;
+  onSave: (tx: Omit<FinTx, "id"> & { recurrenceType?: "none" | "monthly" | "installment"; recurrenceTotal?: number }) => void;
   onDelete?: () => void;
   onClose: () => void;
 }) {
@@ -49,7 +110,8 @@ function TxModal({
   const [amount, setAmount]     = useState(init ? String(init.amount) : "");
   const [date, setDate]         = useState(init?.date ?? (state.mode === "add" ? (state.prefillDate ?? "2026-07-01") : "2026-07-01"));
   const [cardId, setCardId]     = useState(init?.cardId ?? (cards[0]?.id ?? ""));
-  const [recurrence, setRec]    = useState<FinTx["recurrence"]>(init?.recurrence ?? "none");
+  const [recType, setRecType]   = useState<"none" | "monthly" | "installment">(init?.recurrence ? init.recurrence.type : "none");
+  const [recTotal, setRecTotal] = useState(init?.recurrence ? String(init.recurrence.total) : "12");
 
   const submit = () => {
     const n = parseFloat(amount.replace(",", "."));
@@ -57,7 +119,8 @@ function TxModal({
     onSave({
       type, description: description.trim(), amount: n, date,
       cardId: type === "cartao" ? cardId : undefined,
-      recurrence,
+      recurrenceType: isEdit ? undefined : recType,
+      recurrenceTotal: !isEdit && recType !== "none" ? parseInt(recTotal, 10) || 2 : undefined,
     });
   };
 
@@ -75,7 +138,6 @@ function TxModal({
         </div>
 
         <div className="space-y-4">
-          {/* Type selector */}
           <div>
             <label className="block text-xs text-muted-foreground mb-2" style={{ fontFamily: "'DM Mono', monospace" }}>Tipo</label>
             <div className="flex gap-2 flex-wrap">
@@ -92,7 +154,6 @@ function TxModal({
             </div>
           </div>
 
-          {/* Description */}
           <div>
             <label className="block text-xs text-muted-foreground mb-1.5" style={{ fontFamily: "'DM Mono', monospace" }}>Descrição</label>
             <input type="text" value={description} autoFocus onChange={e => setDesc(e.target.value)}
@@ -101,7 +162,6 @@ function TxModal({
               className="w-full px-3 py-2.5 text-sm rounded-lg bg-secondary border border-border focus:outline-none focus:ring-2 focus:ring-accent/30 transition-all placeholder:text-muted-foreground/50" />
           </div>
 
-          {/* Amount + Date */}
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-xs text-muted-foreground mb-1.5" style={{ fontFamily: "'DM Mono', monospace" }}>Valor (R$)</label>
@@ -116,7 +176,6 @@ function TxModal({
             </div>
           </div>
 
-          {/* Card selector (cartao only) */}
           {type === "cartao" && cards.length > 0 && (
             <div>
               <label className="block text-xs text-muted-foreground mb-1.5" style={{ fontFamily: "'DM Mono', monospace" }}>Cartão</label>
@@ -127,23 +186,46 @@ function TxModal({
             </div>
           )}
 
-          {/* Recurrence */}
-          <div className="flex items-center justify-between py-1">
-            <div>
-              <p className="text-sm font-medium">Recorrência mensal</p>
-              <p className="text-xs text-muted-foreground">Repete todo mês no mesmo dia</p>
-            </div>
-            <button
-              onClick={() => setRec(r => r === "none" ? "monthly" : "none")}
-              className={`w-10 h-6 rounded-full transition-colors relative ${recurrence === "monthly" ? "bg-accent" : "bg-secondary"}`}>
-              <div className={`w-4 h-4 bg-white rounded-full absolute top-1 transition-all ${recurrence === "monthly" ? "left-5" : "left-1"}`} />
-            </button>
-          </div>
+          {!isEdit && (
+            <div className="space-y-3 pt-2 border-t border-border">
+              <p className="text-xs font-medium text-muted-foreground uppercase tracking-widest">Repetição</p>
 
-          {/* Actions */}
+              <div className="flex gap-2">
+                {(["none", "monthly", "installment"] as const).map(r => (
+                  <button key={r} onClick={() => setRecType(r)}
+                    className={`flex-1 px-2 py-2 text-xs rounded-lg border transition-all text-center ${
+                      recType === r ? "border-accent bg-accent/10 text-accent font-medium" : "border-border text-muted-foreground hover:text-foreground"
+                    }`}>
+                    {r === "none" ? "Única" : r === "monthly" ? "Recorrente" : "Parcelado"}
+                  </button>
+                ))}
+              </div>
+
+              {recType !== "none" && (
+                <div className="flex items-center gap-3">
+                  <label className="text-xs text-muted-foreground">
+                    {recType === "monthly" ? "Repetir por" : "Parcelar em"}
+                  </label>
+                  <input type="number" min={2} max={999} value={recTotal} onChange={e => setRecTotal(e.target.value)}
+                    className="w-16 px-2 py-1.5 text-sm rounded-lg bg-secondary border border-border text-center focus:outline-none focus:ring-2 focus:ring-accent/30 transition-all" style={{ fontFamily: "'DM Mono', monospace" }} />
+                  <span className="text-xs text-muted-foreground">
+                    {recType === "monthly" ? "meses" : "vezes"}
+                  </span>
+                  {recType === "installment" && amount && !isNaN(parseFloat(amount.replace(",", "."))) && (
+                    <span className="text-xs text-muted-foreground ml-auto">
+                      {formatBRL(parseFloat(amount.replace(",", ".")) / parseInt(recTotal, 10))}/mês
+                    </span>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
           <div className={`flex gap-2 pt-1 ${isEdit ? "justify-between" : "justify-end"}`}>
             {isEdit && onDelete && (
-              <button onClick={onDelete} className="px-3 py-2.5 text-sm rounded-lg text-destructive hover:bg-destructive/10 transition-colors">Excluir</button>
+              <button onClick={onDelete} className="flex items-center gap-1.5 px-3 py-2.5 text-sm rounded-lg text-destructive hover:bg-destructive/10 transition-colors">
+                <Trash2 size={13} /> Excluir
+              </button>
             )}
             <div className="flex gap-2">
               <button onClick={onClose} className="px-3 py-2.5 text-sm rounded-lg hover:bg-secondary transition-colors text-muted-foreground">Cancelar</button>
@@ -244,6 +326,19 @@ function CardModal({
   );
 }
 
+function txLabel(tx: FinTx): string {
+  let label = tx.description;
+  const r = tx.recurrence;
+  if (r) {
+    if (r.type === "installment") {
+      if (!label.includes(`(${r.count}/${r.total})`)) label += ` (${r.count}/${r.total})`;
+    } else {
+      label += " ↻";
+    }
+  }
+  return label;
+}
+
 function DayRow({
   data, onAdd, onEdit,
 }: {
@@ -259,30 +354,10 @@ function DayRow({
     ? "bg-emerald-50 text-emerald-700"
     : "bg-red-50 text-red-700";
 
-  // Build all rows: actual transactions + cartao display rows + fatura rows
   const rows: { label: string; amount: number; color: string; letter: string; tx?: FinTx; isFatura?: boolean; cardName?: string }[] = [
-    ...txs.map(tx => ({
-      label: tx.description + (tx.recurrence === "monthly" ? " ↻" : ""),
-      amount: tx.amount,
-      color: TX_CFG[tx.type].color,
-      letter: TX_CFG[tx.type].letter,
-      tx,
-    })),
-    ...cartaoTxs.map(tx => ({
-      label: tx.description + (tx.recurrence === "monthly" ? " ↻" : ""),
-      amount: tx.amount,
-      color: TX_CFG.cartao.color,
-      letter: TX_CFG.cartao.letter,
-      tx,
-    })),
-    ...faturas.map(f => ({
-      label: `Fatura ${f.card.name}`,
-      amount: f.amount,
-      color: f.card.color,
-      letter: "F",
-      isFatura: true,
-      cardName: f.card.name,
-    })),
+    ...txs.map(tx => ({ label: txLabel(tx), amount: tx.amount, color: TX_CFG[tx.type].color, letter: TX_CFG[tx.type].letter, tx })),
+    ...cartaoTxs.map(tx => ({ label: txLabel(tx), amount: tx.amount, color: TX_CFG.cartao.color, letter: TX_CFG.cartao.letter, tx })),
+    ...faturas.map(f => ({ label: `Fatura ${f.card.name}`, amount: f.amount, color: f.card.color, letter: "F", isFatura: true, cardName: f.card.name })),
   ];
 
   const isEmpty = rows.length === 0;
@@ -290,13 +365,11 @@ function DayRow({
 
   return (
     <div className={`flex items-stretch border-b border-border group transition-colors hover:bg-secondary/20 ${isEmpty ? "opacity-50" : ""}`}>
-      {/* Day number */}
       <div className="w-14 flex-shrink-0 flex flex-col items-center justify-start pt-3 pb-2 border-r border-border">
         <span className="text-sm font-medium leading-none">{String(day).padStart(2, "0")}</span>
         <span className="text-[10px] text-muted-foreground mt-0.5 uppercase" style={{ fontFamily: "'DM Mono', monospace" }}>{weekDay}</span>
       </div>
 
-      {/* Transactions */}
       <div className="flex-1 py-1 min-w-0">
         {isEmpty ? (
           <div className="px-3 py-2 text-xs text-muted-foreground/50 italic">—</div>
@@ -323,7 +396,6 @@ function DayRow({
             </div>
           ))
         )}
-        {/* Add button (shows on hover) */}
         <button
           onClick={() => onAdd(dateStr)}
           className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1 px-3 py-1 text-xs text-muted-foreground hover:text-foreground"
@@ -332,7 +404,6 @@ function DayRow({
         </button>
       </div>
 
-      {/* Saldo */}
       <div className={`w-28 sm:w-36 flex-shrink-0 flex items-center justify-end px-3 sm:px-4 text-sm font-medium tabular-nums transition-colors ${saldoColor}`}
         style={{ fontFamily: "'DM Mono', monospace" }}>
         {saldo < 0 ? "-" : ""}{formatBRL(saldo)}
@@ -357,13 +428,11 @@ function saldoCellStyle(value: number, maxPos: number, maxNeg: number): { backgr
   if (value === 0) return { backgroundColor: "transparent" };
   if (value > 0) {
     const t = Math.min(value / (maxPos || 1), 1);
-    // pale yellow → light green → rich green
     const r = Math.round(255 - t * 130);
     const g = Math.round(243 - t * 60);
     const b = Math.round(176 - t * 160);
     return { backgroundColor: `rgb(${r},${g},${b})`, color: t > 0.5 ? "#1a4731" : "#3a6a20" };
   }
-  // negative
   const t = Math.min(Math.abs(value) / (Math.abs(maxNeg) || 1), 1);
   const r = Math.round(255 - t * 30);
   const g = Math.round(220 - t * 160);
@@ -385,7 +454,6 @@ function HorizonteTab({
 
   const allMonthData = useMemo(
     () => months.map(m => computeMonthData(m.getFullYear(), m.getMonth(), transactions, cards, initialBalance)),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     [startDate.toISOString(), transactions, cards, initialBalance],
   );
 
@@ -419,7 +487,6 @@ function HorizonteTab({
                 {months.map((m, mi) => {
                   const dayData = allMonthData[mi][rowIdx];
                   if (!dayData) {
-                    // Month has fewer days — empty cells
                     return <td key={mi} colSpan={2} className="border-l border-border/30 first:border-l-0" />;
                   }
 
@@ -455,9 +522,10 @@ export default function FinancePage() {
   const { transactions, cards, addTx, updateTx, deleteTx, addCard, updateCard, deleteCard } = useFinance();
 
   const [tab, setTab] = useState<FinTab>("saldos");
-  const [viewDate, setViewDate] = useState(new Date(2026, 6, 1)); // July 2026
+  const [viewDate, setViewDate] = useState(new Date(2026, 6, 1));
   const [txModal, setTxModal]   = useState<ModalState>({ mode: "closed" });
   const [cardModal, setCardModal] = useState<CardModalState>({ mode: "closed" });
+  const [deleteTarget, setDeleteTarget] = useState<FinTx | null>(null);
 
   const year  = viewDate.getFullYear();
   const month = viewDate.getMonth();
@@ -485,13 +553,20 @@ export default function FinancePage() {
 
   const lastSaldo = monthData[monthData.length - 1]?.saldo ?? 0;
 
-  const saveTx = (tx: Omit<FinTx, "id">) => {
+  const saveTx = (tx: Omit<FinTx, "id"> & { recurrenceType?: "none" | "monthly" | "installment"; recurrenceTotal?: number }) => {
     if (txModal.mode === "add") addTx(tx);
-    else if (txModal.mode === "edit") updateTx(txModal.tx.id, tx);
+    else if (txModal.mode === "edit") {
+      const { recurrenceType, recurrenceTotal, ...rest } = tx;
+      updateTx(txModal.tx.id, rest);
+    }
     setTxModal({ mode: "closed" });
   };
   const deleteTxHandler = () => {
-    if (txModal.mode === "edit") deleteTx(txModal.tx.id);
+    if (txModal.mode === "edit") setDeleteTarget(txModal.tx);
+  };
+  const confirmDelete = (scope: DeleteScope) => {
+    if (deleteTarget) deleteTx(deleteTarget.id, scope);
+    setDeleteTarget(null);
     setTxModal({ mode: "closed" });
   };
   const saveCard = (c: Omit<CreditCard, "id">) => {
@@ -516,7 +591,6 @@ export default function FinancePage() {
         </div>
 
         <div className="flex items-center gap-3">
-          {/* Month nav */}
           <div className="flex items-center gap-1">
             <button onClick={() => setViewDate(d => subMonths(d, 1))}
               className="w-8 h-8 flex items-center justify-center rounded-md hover:bg-secondary transition-colors text-muted-foreground hover:text-foreground">
@@ -566,7 +640,6 @@ export default function FinancePage() {
 
       {tab === "saldos" && (
         <div className="bg-card border border-border rounded-xl overflow-hidden">
-          {/* Column headers */}
           <div className="flex border-b border-border bg-secondary/40">
             <div className="w-14 flex-shrink-0 px-3 py-2 border-r border-border">
               <span className="text-[10px] text-muted-foreground uppercase tracking-wider" style={{ fontFamily: "'DM Mono', monospace" }}>Dia</span>
@@ -579,7 +652,6 @@ export default function FinancePage() {
             </div>
           </div>
 
-          {/* Day rows */}
           <div className="divide-y-0">
             {monthData.map(day => (
               <DayRow
@@ -595,7 +667,6 @@ export default function FinancePage() {
 
       {tab === "totais" && (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-          {/* Movimentações do mês */}
           <div>
             <h2 className="text-xs text-muted-foreground uppercase tracking-widest mb-4" style={{ fontFamily: "'DM Mono', monospace" }}>
               Movimentações do mês
@@ -630,13 +701,11 @@ export default function FinancePage() {
             </div>
           </div>
 
-          {/* Cálculos */}
           <div>
             <h2 className="text-xs text-muted-foreground uppercase tracking-widest mb-4" style={{ fontFamily: "'DM Mono', monospace" }}>
               Cálculos do mês
             </h2>
             <div className="space-y-3">
-              {/* Performance */}
               <div className="bg-card border border-border rounded-xl p-4">
                 <div className="flex items-center justify-between mb-1">
                   <p className="text-sm font-medium">Performance</p>
@@ -650,7 +719,6 @@ export default function FinancePage() {
                 </p>
               </div>
 
-              {/* Economizado */}
               <div className="bg-card border border-border rounded-xl p-4">
                 <div className="flex items-center justify-between mb-2">
                   <p className="text-sm font-medium">Economizado</p>
@@ -666,7 +734,6 @@ export default function FinancePage() {
                 </p>
               </div>
 
-              {/* Custo de vida */}
               <div className="bg-card border border-border rounded-xl p-4">
                 <div className="flex items-center justify-between mb-1">
                   <p className="text-sm font-medium">Custo de vida</p>
@@ -677,7 +744,6 @@ export default function FinancePage() {
                 <p className="text-xs text-muted-foreground">saídas + diários + cartão</p>
               </div>
 
-              {/* Diário médio */}
               <div className="bg-card border border-border rounded-xl p-4">
                 <div className="flex items-center justify-between mb-1">
                   <p className="text-sm font-medium">Diário médio</p>
@@ -721,7 +787,6 @@ export default function FinancePage() {
 
               return (
                 <div key={card.id} className="bg-card border border-border rounded-2xl p-5 relative overflow-hidden">
-                  {/* Color accent */}
                   <div className="absolute top-0 left-0 right-0 h-1 rounded-t-2xl" style={{ backgroundColor: card.color }} />
 
                   <div className="flex items-start justify-between mb-4 mt-1">
@@ -742,7 +807,6 @@ export default function FinancePage() {
                     </button>
                   </div>
 
-                  {/* Limit bar */}
                   <div className="mb-3">
                     <div className="flex items-center justify-between text-xs text-muted-foreground mb-1.5" style={{ fontFamily: "'DM Mono', monospace" }}>
                       <span>Limite utilizado</span>
@@ -753,7 +817,6 @@ export default function FinancePage() {
                     </div>
                   </div>
 
-                  {/* Fatura */}
                   <div className="flex items-center justify-between pt-3 border-t border-border">
                     <span className="text-xs text-muted-foreground">Fatura {format(viewDate, "MMM/yy", { locale: ptBR })}</span>
                     <span className="text-sm font-semibold tabular-nums" style={{ fontFamily: "'DM Mono', monospace", color: fatura > 0 ? "#C4581B" : "inherit" }}>
@@ -761,7 +824,6 @@ export default function FinancePage() {
                     </span>
                   </div>
 
-                  {/* Cartao transactions this month */}
                   {(() => {
                     const cardTxs = monthData.flatMap(d => d.cartaoTxs).filter(tx => tx.cardId === card.id);
                     if (cardTxs.length === 0) return null;
@@ -770,7 +832,7 @@ export default function FinancePage() {
                         {cardTxs.slice(0, 4).map(tx => (
                           <div key={tx.id} className="flex items-center gap-2 text-xs text-muted-foreground">
                             <div className="w-1 h-1 rounded-full" style={{ backgroundColor: card.color }} />
-                            <span className="flex-1 truncate">{tx.description}</span>
+                            <span className="flex-1 truncate">{txLabel(tx)}</span>
                             <span style={{ fontFamily: "'DM Mono', monospace" }}>{formatBRL(tx.amount)}</span>
                           </div>
                         ))}
@@ -787,7 +849,15 @@ export default function FinancePage() {
         </div>
       )}
 
-      {txModal.mode !== "closed" && (
+      {deleteTarget && (
+        <DeleteDialog
+          tx={deleteTarget}
+          onConfirm={confirmDelete}
+          onClose={() => setDeleteTarget(null)}
+        />
+      )}
+
+      {txModal.mode !== "closed" && !deleteTarget && (
         <TxModal
           state={txModal}
           cards={cards}

@@ -1,5 +1,11 @@
 export type TxType = "entrada" | "saida" | "diario" | "economia" | "cartao";
-export type ExCat = "alimentacao" | "transporte" | "hospedagem" | "lazer" | "compras" | "outros";
+
+export interface Recurrence {
+  type: "monthly" | "installment";
+  groupId: string;
+  total: number;  // total occurrences
+  count: number;  // current index (1-based)
+}
 
 export interface FinTx {
   id: string;
@@ -8,8 +14,10 @@ export interface FinTx {
   amount: number;
   date: string; // "yyyy-MM-dd"
   cardId?: string;
-  recurrence: "none" | "monthly";
+  recurrence?: Recurrence;
 }
+
+export type DeleteScope = "this" | "future" | "all";
 
 export interface CreditCard {
   id: string;

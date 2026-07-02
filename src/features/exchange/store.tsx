@@ -4,8 +4,8 @@ import { loadFromStorage, saveToStorage } from "../../shared/lib/persist";
 import type { WishlistPlace, ItineraryItem, ExTx, ExConfig } from "./types";
 
 const DEFAULT_CONFIG: ExConfig = {
-  country: "França", city: "Paris", currency: "EUR", currencySymbol: "€",
-  exchangeRate: 5.85, budget: 3000, startDate: "2026-08-01", endDate: "2026-12-15",
+  country: "Reino Unido", city: "Londres", currency: "GBP", currencySymbol: "£",
+  exchangeRate: 6.30, budget: 3000, startDate: "2026-08-01", endDate: "2026-12-15",
 };
 
 const SEED_PLACES: WishlistPlace[] = [

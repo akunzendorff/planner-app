@@ -871,9 +871,66 @@ function TxModalEx({ mode, initial, symbol, onSave, onDelete, onClose }: {
   );
 }
 
+function ConfigModal({ config, onSave, onClose }: { config: ExConfig; onSave: (c: ExConfig) => void; onClose: () => void }) {
+  const [country, setCountry]       = useState(config.country);
+  const [city, setCity]             = useState(config.city);
+  const [startDate, setStartDate]   = useState(config.startDate);
+  const [endDate, setEndDate]       = useState(config.endDate);
+  const [budget, setBudget]         = useState(String(config.budget));
+
+  const submit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const n = parseFloat(budget.replace(",", "."));
+    if (!country.trim() || !city.trim() || isNaN(n)) return;
+    onSave({ country: country.trim(), city: city.trim(), currency: "GBP", currencySymbol: "£", exchangeRate: config.exchangeRate, budget: n, startDate, endDate });
+  };
+
+  return (
+    <div className="fixed inset-0 bg-foreground/20 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+      onClick={e => e.target === e.currentTarget && onClose()}>
+      <div className="bg-card border border-border rounded-2xl shadow-xl w-full max-w-sm p-6">
+        <div className="flex items-center justify-between mb-5">
+          <h3 className="text-lg font-medium">Editar intercâmbio</h3>
+          <button onClick={onClose} className="w-7 h-7 flex items-center justify-center rounded-md hover:bg-secondary transition-colors text-muted-foreground"><X size={14} /></button>
+        </div>
+        <form id="config-form" onSubmit={submit} className="space-y-3">
+          <div className="grid grid-cols-2 gap-2">
+            <input value={country} onChange={e => setCountry(e.target.value)} required placeholder="País"
+              className="w-full px-3 py-2.5 text-sm rounded-lg bg-secondary border border-border focus:outline-none focus:ring-2 focus:ring-accent/30" />
+            <input value={city} onChange={e => setCity(e.target.value)} required placeholder="Cidade"
+              className="w-full px-3 py-2.5 text-sm rounded-lg bg-secondary border border-border focus:outline-none focus:ring-2 focus:ring-accent/30" />
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <label className="block text-xs text-muted-foreground mb-1" style={{ fontFamily: "'DM Mono', monospace" }}>Início</label>
+              <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)}
+                className="w-full px-3 py-2.5 text-sm rounded-lg bg-secondary border border-border focus:outline-none" style={{ fontFamily: "'DM Mono', monospace" }} />
+            </div>
+            <div>
+              <label className="block text-xs text-muted-foreground mb-1" style={{ fontFamily: "'DM Mono', monospace" }}>Fim</label>
+              <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)}
+                className="w-full px-3 py-2.5 text-sm rounded-lg bg-secondary border border-border focus:outline-none" style={{ fontFamily: "'DM Mono', monospace" }} />
+            </div>
+          </div>
+          <div>
+            <label className="block text-xs text-muted-foreground mb-1">Orçamento (£)</label>
+            <input value={budget} onChange={e => setBudget(e.target.value)} required placeholder="3000"
+              className="w-full px-3 py-2.5 text-sm rounded-lg bg-secondary border border-border focus:outline-none" style={{ fontFamily: "'DM Mono', monospace" }} />
+          </div>
+          <div className="flex gap-2 pt-2 justify-end">
+            <button onClick={onClose} className="px-3 py-2.5 text-sm rounded-lg hover:bg-secondary transition-colors text-muted-foreground">Cancelar</button>
+            <button type="submit" className="px-4 py-2.5 text-sm font-medium rounded-lg bg-primary text-primary-foreground hover:opacity-80 transition-all">Salvar</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
 export default function ExchangePage() {
-  const { config, places, items } = useExchange();
+  const { config, setConfig, places, items } = useExchange();
   const [tab, setTab] = useState<ExTab>("roteiro");
+  const [configModalOpen, setConfigModalOpen] = useState(false);
 
   const today = new Date(2026, 6, 2);
   const start = parseISO(config.startDate);
@@ -887,10 +944,14 @@ export default function ExchangePage() {
       <div className="bg-card border border-border rounded-2xl p-5 mb-6 relative overflow-hidden">
         <div className="absolute inset-0 opacity-5" style={{ background: "radial-gradient(ellipse at top right, #3B6FA0 0%, transparent 70%)" }} />
         <div className="relative flex items-start justify-between flex-wrap gap-4">
-          <div>
+          <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-1">
               <Globe size={16} className="text-muted-foreground" />
               <p className="text-xs text-muted-foreground uppercase tracking-widest" style={{ fontFamily: "'DM Mono', monospace" }}>Intercâmbio</p>
+              <button onClick={() => setConfigModalOpen(true)}
+                className="ml-1 w-5 h-5 flex items-center justify-center rounded text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors">
+                <Pencil size={10} />
+              </button>
             </div>
             <h1 className="text-2xl sm:text-3xl font-medium tracking-tight">
               {config.city}, {config.country}
@@ -915,6 +976,8 @@ export default function ExchangePage() {
           </div>
         </div>
       </div>
+
+      {configModalOpen && <ConfigModal config={config} onSave={c => { setConfig(c); setConfigModalOpen(false); }} onClose={() => setConfigModalOpen(false)} />}
 
       <div className="flex items-center gap-0.5 bg-secondary rounded-lg p-1 mb-6 w-fit">
         {([["roteiro","Roteiro"],["lugares","Lugares"],["financas","Finanças"]] as [ExTab,string][]).map(([v,l]) => (

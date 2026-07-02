@@ -1,4 +1,4 @@
-import { getDaysInMonth, parseISO, subMonths } from "date-fns";
+import { getDaysInMonth, parseISO, subMonths, addMonths } from "date-fns";
 import type { FinTx, CreditCard, TxType } from "./types";
 
 export const TX_CFG: Record<TxType, { label: string; color: string; letter: string; sign: 1 | -1 }> = {
@@ -11,6 +11,12 @@ export const TX_CFG: Record<TxType, { label: string; color: string; letter: stri
 
 export function formatBRL(n: number): string {
   return `R$ ${Math.abs(n).toFixed(2).replace(".", ",").replace(/\B(?=(\d{3})+(?!\d))/g, ".")}`;
+}
+
+export function nextBusinessDay(day: number, year: number, month: number): number {
+  const d = new Date(year, month, day);
+  while (d.getDay() === 0 || d.getDay() === 6) d.setDate(d.getDate() + 1);
+  return d.getDate();
 }
 
 export interface DayData {
@@ -27,10 +33,28 @@ function dateStr(year: number, month: number, day: number): string {
 }
 
 function matchesDate(tx: FinTx, date: string): boolean {
-  if (tx.recurrence === "none") return tx.date === date;
-  const txDay    = tx.date.slice(8, 10);
+  const rec = tx.recurrence;
+  if (!rec) return tx.date === date;
+
+  const txDay = tx.date.slice(8, 10);
   const targetDay = date.slice(8, 10);
-  return txDay === targetDay && tx.date.slice(0, 7) <= date.slice(0, 7);
+  if (txDay !== targetDay) return false;
+
+  // Must be same month as target or earlier
+  if (tx.date.slice(0, 7) > date.slice(0, 7)) return false;
+
+  // Check if this occurrence is within the recurrence range
+  const startParts = tx.date.split("-").map(Number);
+  const targetParts = date.split("-").map(Number);
+  const diffMonths = (targetParts[0] - startParts[0]) * 12 + (targetParts[1] - startParts[1]);
+
+  return diffMonths >= 0 && diffMonths < rec.total;
+}
+
+function reconcileBusinessDay(tx: FinTx, year: number, month: number): string {
+  const txDay = parseInt(tx.date.slice(8, 10), 10);
+  const adjusted = txDay <= 28 ? nextBusinessDay(txDay, year, month) : txDay;
+  return dateStr(year, month, adjusted);
 }
 
 export function computeCardFatura(card: CreditCard, year: number, month: number, transactions: FinTx[]): number {
@@ -48,20 +72,29 @@ export function computeCardFatura(card: CreditCard, year: number, month: number,
     billingStartYear = prev2.getFullYear(); billingStartMonth = prev2.getMonth();
   }
 
-  const startStr = dateStr(billingStartYear, billingStartMonth, card.closingDay + 1);
-  const endStr   = dateStr(billingEndYear,   billingEndMonth,   card.closingDay);
+  const adjustedClosingDay = nextBusinessDay(card.closingDay, billingEndYear, billingEndMonth);
+  const startStr = dateStr(billingStartYear, billingStartMonth, adjustedClosingDay + 1);
+  const endStr = dateStr(billingEndYear, billingEndMonth, adjustedClosingDay);
 
   return transactions
     .filter(tx => tx.type === "cartao" && tx.cardId === card.id)
     .filter(tx => {
-      if (tx.recurrence === "none") return tx.date >= startStr && tx.date <= endStr;
+      const rec = tx.recurrence;
+      if (!rec) return tx.date >= startStr && tx.date <= endStr;
+
       const txDayStr = tx.date.slice(8, 10);
-      const instStart = `${billingStartYear}-${String(billingStartMonth + 1).padStart(2, "0")}-${txDayStr}`;
-      const instEnd   = `${billingEndYear}-${String(billingEndMonth + 1).padStart(2, "0")}-${txDayStr}`;
-      return tx.date <= Math.max(instStart, instEnd) && (
-        (instStart >= startStr && instStart <= endStr) ||
-        (instEnd   >= startStr && instEnd   <= endStr)
-      );
+      const startParts = tx.date.split("-").map(Number);
+      const endParts = endStr.split("-").map(Number);
+      const diffMonths = (endParts[0] - startParts[0]) * 12 + (endParts[1] - startParts[1]);
+      const maxOccurrence = rec.total;
+
+      // Each occurrence corresponds to one month after start
+      for (let i = 0; i < maxOccurrence; i++) {
+        const occDate = addMonths(parseISO(tx.date), i);
+        const occStr = dateStr(occDate.getFullYear(), occDate.getMonth(), parseInt(txDayStr, 10));
+        if (occStr >= startStr && occStr <= endStr) return true;
+      }
+      return false;
     })
     .reduce((s, tx) => s + tx.amount, 0);
 }
@@ -84,7 +117,8 @@ function computeStartingBalance(year: number, month: number, transactions: FinTx
         balance += tx.type === "entrada" ? tx.amount : -tx.amount;
       }
       for (const card of cards) {
-        if (card.dueDay === d) balance -= computeCardFatura(card, sy, sm, transactions);
+        const adjDue = nextBusinessDay(card.dueDay, sy, sm);
+        if (adjDue === d) balance -= computeCardFatura(card, sy, sm, transactions);
       }
     }
     sm++; if (sm > 11) { sm = 0; sy++; }
@@ -99,10 +133,10 @@ export function computeMonthData(year: number, month: number, transactions: FinT
 
   for (let d = 1; d <= numDays; d++) {
     const ds = dateStr(year, month, d);
-    const txs      = transactions.filter(tx => tx.type !== "cartao" && matchesDate(tx, ds));
+    const txs = transactions.filter(tx => tx.type !== "cartao" && matchesDate(tx, ds));
     const cartaoTxs = transactions.filter(tx => tx.type === "cartao" && matchesDate(tx, ds));
-    const faturas  = cards
-      .filter(c => c.dueDay === d)
+    const faturas = cards
+      .filter(c => nextBusinessDay(c.dueDay, year, month) === d)
       .map(c => ({ card: c, amount: computeCardFatura(c, year, month, transactions) }))
       .filter(f => f.amount > 0);
 
