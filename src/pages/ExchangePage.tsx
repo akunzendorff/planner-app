@@ -722,7 +722,7 @@ function FinancasTab() {
                 key={d.day}
                 day={d.day} dateStr={d.dateStr} txs={d.txs}
                 saldo={dayData.slice(0, d.day).reduce((s, dd) => {
-                  return s + dd.txs.reduce((ss, tx) => ss + (tx.type === "income" ? tx.amount : -tx.amount), 0);
+                  return s + dd.txs.reduce((ss, tx) => ss + (tx.type === "entrada" ? tx.amount : -tx.amount), 0);
                 }, 0)}
                 symbol={config.currencySymbol}
                 onAdd={date => setTxModal({ mode: "add", prefillDate: date })}
