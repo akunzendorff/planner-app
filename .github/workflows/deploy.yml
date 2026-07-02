@@ -23,6 +23,9 @@ jobs:
           node-version: 20
       - run: npm install --no-package-lock --force
       - run: npm run build
+        env:
+          VITE_SUPABASE_PROJECT_ID: ninbruceyvcjthyyjwjx
+          VITE_SUPABASE_ANON_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5pbmJydWNleXZjanRoeXlqd2p4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMwMDAzNTYsImV4cCI6MjA5ODU3NjM1Nn0.QaymNaMqtDhOkzDXTU7n8I_YcU2lN0e83ZLTwGl3W1k
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist
