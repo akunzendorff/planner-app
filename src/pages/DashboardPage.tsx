@@ -2,6 +2,7 @@ import { useNavigate } from "react-router";
 import { format, addDays, isSameDay, isToday, isTomorrow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { ArrowRight, Clock, MapPin, Target, Plus, TrendingUp } from "lucide-react";
+import { useAuth } from "../features/auth";
 import { useStore } from "../features/calendar/store";
 
 const TODAY = new Date(2026, 6, 2);
@@ -17,8 +18,22 @@ function dayLabel(date: Date) {
   return format(date, "EEEE, d MMM", { locale: ptBR });
 }
 
+function greeting() {
+  const h = new Date().getHours();
+  if (h < 12) return "Bom dia";
+  if (h < 18) return "Boa tarde";
+  return "Boa noite";
+}
+
+function getName(u: { email?: string; user_metadata?: Record<string, unknown> } | null) {
+  const meta = u?.user_metadata;
+  const raw = (typeof meta?.full_name === "string" ? meta.full_name : null) ?? (typeof meta?.name === "string" ? meta.name : null) ?? u?.email?.split("@")[0] ?? "";
+  return raw.charAt(0).toUpperCase() + raw.slice(1);
+}
+
 export default function DashboardPage() {
   const { events, goals } = useStore();
+  const { user } = useAuth();
   const navigate = useNavigate();
 
   const upcoming = events
@@ -45,7 +60,7 @@ export default function DashboardPage() {
           {format(TODAY, "EEEE, d 'de' MMMM 'de' yyyy", { locale: ptBR })}
         </p>
         <h1 className="text-3xl sm:text-4xl font-medium tracking-tight">
-          Bom dia. ☀
+          {greeting()}, {getName(user)}. ☀
         </h1>
         <p className="text-muted-foreground mt-2 text-sm">
           {todayEvents.length === 0

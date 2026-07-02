@@ -66,9 +66,6 @@ function AppShell() {
                   >
                     {theme === "dark" ? <Sun size={14} /> : <Moon size={14} />}
                   </button>
-                  <span className="text-xs text-muted-foreground hidden sm:block truncate max-w-[140px]">
-                    {user.email}
-                  </span>
                   <button
                     onClick={signOut}
                     title="Sair"
