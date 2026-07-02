@@ -8,9 +8,9 @@ import { exchangeRoutes } from "./routes/exchange.js";
 const PORT = Number(process.env.PORT ?? 3000);
 
 const fastify = Fastify({
-  logger: {
-    transport: { target: "pino-pretty", options: { colorize: true } },
-  },
+  logger: process.env.NODE_ENV !== "production"
+    ? { transport: { target: "pino-pretty", options: { colorize: true } } }
+    : true,
 });
 
 await fastify.register(rateLimit, {
