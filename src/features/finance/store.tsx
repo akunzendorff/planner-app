@@ -74,8 +74,22 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     Promise.all([financeApi.getTransactions(), financeApi.getCards()])
       .then(([savedTxs, savedCards]) => {
-        if (savedTxs.length)   setTransactions(savedTxs);
-        if (savedCards.length) setCards(savedCards);
+        setTransactions(prev => {
+          const existingIds = new Set(prev.map(t => t.id));
+          const newTxs = savedTxs.filter(t => !existingIds.has(t.id));
+          if (!newTxs.length) return prev;
+          const merged = [...prev, ...newTxs];
+          saveToStorage("finance_transactions", merged);
+          return merged;
+        });
+        setCards(prev => {
+          const existingIds = new Set(prev.map(c => c.id));
+          const newCards = savedCards.filter(c => !existingIds.has(c.id));
+          if (!newCards.length) return prev;
+          const merged = [...prev, ...newCards];
+          saveToStorage("finance_cards", merged);
+          return merged;
+        });
       })
       .catch(console.error);
   }, []);
