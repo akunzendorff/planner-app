@@ -585,11 +585,9 @@ function ExDayRow({ day, dateStr, txs, saldo, symbol, onAdd, onEdit }: {
 
 function FinancasTab() {
   const { config, setConfig, txs, addTx, updateTx, deleteTx } = useExchange();
-  const [viewDate, setViewDate] = useState(() => {
-    const d = new Date(2026, 6, 1);
-    d.setDate(1);
-    return d;
-  });
+  const MIN_DATE = new Date(2026, 8, 1); // setembro
+  const MAX_DATE = new Date(2026, 9, 1); // outubro
+  const [viewDate, setViewDate] = useState(() => new Date(2026, 8, 1));
   const [txModal, setTxModal] = useState<{ mode: "closed" } | { mode: "add"; prefillDate?: string } | { mode: "edit"; tx: ExTx }>({ mode: "closed" });
   const [editingRate, setEditingRate] = useState(false);
   const [rateInput, setRateInput] = useState(String(config.exchangeRate));
@@ -647,14 +645,16 @@ function FinancasTab() {
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div className="flex items-center gap-2">
           <button onClick={() => setViewDate(d => subMonths(d, 1))}
-            className="w-8 h-8 flex items-center justify-center rounded-md hover:bg-secondary transition-colors text-muted-foreground hover:text-foreground">
+            disabled={viewDate <= MIN_DATE}
+            className="w-8 h-8 flex items-center justify-center rounded-md transition-colors disabled:opacity-20 disabled:cursor-not-allowed hover:bg-secondary text-muted-foreground hover:text-foreground">
             <ChevronLeft size={16} />
           </button>
           <span className="text-sm font-medium w-20 text-center capitalize" style={{ fontFamily: "'DM Mono', monospace" }}>
             {format(viewDate, "MMM/yy", { locale: ptBR })}
           </span>
           <button onClick={() => setViewDate(d => addMonths(d, 1))}
-            className="w-8 h-8 flex items-center justify-center rounded-md hover:bg-secondary transition-colors text-muted-foreground hover:text-foreground">
+            disabled={addMonths(viewDate, 1) > MAX_DATE}
+            className="w-8 h-8 flex items-center justify-center rounded-md transition-colors disabled:opacity-20 disabled:cursor-not-allowed hover:bg-secondary text-muted-foreground hover:text-foreground">
             <ChevronRight size={16} />
           </button>
         </div>
