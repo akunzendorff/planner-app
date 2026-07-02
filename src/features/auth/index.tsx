@@ -12,6 +12,7 @@ export interface AuthActions {
   signIn:  (email: string, password: string) => Promise<string | null>;
   signUp:  (email: string, password: string, name?: string) => Promise<string | null>;
   signOut: () => Promise<void>;
+  updateName: (name: string) => Promise<string | null>;
 }
 
 type AuthCtx = AuthState & AuthActions;
@@ -50,8 +51,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signOut = async () => { await supabase.auth.signOut(); };
 
+  const updateName = async (name: string): Promise<string | null> => {
+    const { error } = await supabase.auth.updateUser({ data: { name } });
+    return error?.message ?? null;
+  };
+
   return (
-    <Ctx.Provider value={{ user, session, loading, signIn, signUp, signOut }}>
+    <Ctx.Provider value={{ user, session, loading, signIn, signUp, signOut, updateName }}>
       {children}
     </Ctx.Provider>
   );
