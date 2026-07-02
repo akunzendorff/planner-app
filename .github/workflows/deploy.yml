@@ -23,8 +23,6 @@ jobs:
           node-version: 20
       - run: npm install --no-package-lock --force
       - run: npm run build
-        env:
-          VITE_API_URL: https://planner-api.onrender.com
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist

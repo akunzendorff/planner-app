@@ -17,8 +17,10 @@ CREATE TABLE IF NOT EXISTS calendar_events (
 );
 
 ALTER TABLE calendar_events ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Users see only their own events"
-  ON calendar_events FOR ALL USING (auth.uid() = user_id);
+CREATE POLICY "Users manage their own events"
+  ON calendar_events FOR ALL
+  USING (auth.uid() = user_id)
+  WITH CHECK (auth.uid() = user_id);
 
 -- ── Goals ─────────────────────────────────────────────────────────────────────
 
@@ -35,8 +37,10 @@ CREATE TABLE IF NOT EXISTS goals (
 );
 
 ALTER TABLE goals ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Users see only their own goals"
-  ON goals FOR ALL USING (auth.uid() = user_id);
+CREATE POLICY "Users manage their own goals"
+  ON goals FOR ALL
+  USING (auth.uid() = user_id)
+  WITH CHECK (auth.uid() = user_id);
 
 -- ── Finance transactions ──────────────────────────────────────────────────────
 
@@ -53,8 +57,10 @@ CREATE TABLE IF NOT EXISTS finance_transactions (
 );
 
 ALTER TABLE finance_transactions ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Users see only their own transactions"
-  ON finance_transactions FOR ALL USING (auth.uid() = user_id);
+CREATE POLICY "Users manage their own transactions"
+  ON finance_transactions FOR ALL
+  USING (auth.uid() = user_id)
+  WITH CHECK (auth.uid() = user_id);
 
 -- ── Credit cards ──────────────────────────────────────────────────────────────
 
@@ -70,8 +76,10 @@ CREATE TABLE IF NOT EXISTS credit_cards (
 );
 
 ALTER TABLE credit_cards ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Users see only their own cards"
-  ON credit_cards FOR ALL USING (auth.uid() = user_id);
+CREATE POLICY "Users manage their own cards"
+  ON credit_cards FOR ALL
+  USING (auth.uid() = user_id)
+  WITH CHECK (auth.uid() = user_id);
 
 -- ── Exchange config ───────────────────────────────────────────────────────────
 
@@ -89,8 +97,10 @@ CREATE TABLE IF NOT EXISTS exchange_config (
 );
 
 ALTER TABLE exchange_config ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Users see only their own exchange config"
-  ON exchange_config FOR ALL USING (auth.uid() = user_id);
+CREATE POLICY "Users manage their own exchange config"
+  ON exchange_config FOR ALL
+  USING (auth.uid() = user_id)
+  WITH CHECK (auth.uid() = user_id);
 
 -- ── Wishlist places ───────────────────────────────────────────────────────────
 
@@ -107,8 +117,10 @@ CREATE TABLE IF NOT EXISTS wishlist_places (
 );
 
 ALTER TABLE wishlist_places ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Users see only their own places"
-  ON wishlist_places FOR ALL USING (auth.uid() = user_id);
+CREATE POLICY "Users manage their own places"
+  ON wishlist_places FOR ALL
+  USING (auth.uid() = user_id)
+  WITH CHECK (auth.uid() = user_id);
 
 -- ── Itinerary items ───────────────────────────────────────────────────────────
 
@@ -128,8 +140,10 @@ CREATE TABLE IF NOT EXISTS itinerary_items (
 );
 
 ALTER TABLE itinerary_items ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Users see only their own itinerary"
-  ON itinerary_items FOR ALL USING (auth.uid() = user_id);
+CREATE POLICY "Users manage their own itinerary"
+  ON itinerary_items FOR ALL
+  USING (auth.uid() = user_id)
+  WITH CHECK (auth.uid() = user_id);
 
 -- ── Exchange transactions ─────────────────────────────────────────────────────
 
@@ -145,8 +159,10 @@ CREATE TABLE IF NOT EXISTS exchange_transactions (
 );
 
 ALTER TABLE exchange_transactions ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Users see only their own exchange transactions"
-  ON exchange_transactions FOR ALL USING (auth.uid() = user_id);
+CREATE POLICY "Users manage their own exchange transactions"
+  ON exchange_transactions FOR ALL
+  USING (auth.uid() = user_id)
+  WITH CHECK (auth.uid() = user_id);
 
 -- ── Helper: auto-update updated_at ───────────────────────────────────────────
 
