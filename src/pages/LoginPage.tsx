@@ -7,6 +7,7 @@ type Mode = "login" | "signup";
 export default function LoginPage() {
   const { signIn, signUp } = useAuth();
   const [mode, setMode]         = useState<Mode>("login");
+  const [name, setName]         = useState("");
   const [email, setEmail]       = useState("");
   const [password, setPassword] = useState("");
   const [showPass, setShowPass] = useState(false);
@@ -22,7 +23,7 @@ export default function LoginPage() {
 
     const err = mode === "login"
       ? await signIn(email, password)
-      : await signUp(email, password);
+      : await signUp(email, password, name);
 
     setLoading(false);
 
@@ -55,6 +56,21 @@ export default function LoginPage() {
         {/* Card */}
         <div className="bg-card border border-border rounded-2xl p-6 shadow-sm">
           <form onSubmit={handleSubmit} className="space-y-4">
+            {mode === "signup" && (
+              <div>
+                <label className="block text-xs text-muted-foreground mb-1.5" style={{ fontFamily: "'DM Mono', monospace" }}>
+                  Seu nome
+                </label>
+                <input
+                  type="text"
+                  value={name}
+                  onChange={e => setName(e.target.value)}
+                  required
+                  placeholder="Ana"
+                  className="w-full px-3 py-2.5 text-sm rounded-lg bg-secondary border border-border focus:outline-none focus:ring-2 focus:ring-accent/30 transition-all placeholder:text-muted-foreground/50"
+                />
+              </div>
+            )}
             <div>
               <label className="block text-xs text-muted-foreground mb-1.5" style={{ fontFamily: "'DM Mono', monospace" }}>
                 Email
@@ -118,7 +134,7 @@ export default function LoginPage() {
             <p className="text-xs text-muted-foreground">
               {mode === "login" ? "Não tem conta?" : "Já tem conta?"}{" "}
               <button
-                onClick={() => { setMode(m => m === "login" ? "signup" : "login"); setError(null); setSuccess(null); }}
+                onClick={() => { setMode(m => m === "login" ? "signup" : "login"); setName(""); setError(null); setSuccess(null); }}
                 className="text-accent hover:underline font-medium"
               >
                 {mode === "login" ? "Criar conta" : "Fazer login"}

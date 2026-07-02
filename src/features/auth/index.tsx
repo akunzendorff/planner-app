@@ -10,7 +10,7 @@ export interface AuthState {
 
 export interface AuthActions {
   signIn:  (email: string, password: string) => Promise<string | null>;
-  signUp:  (email: string, password: string) => Promise<string | null>;
+  signUp:  (email: string, password: string, name?: string) => Promise<string | null>;
   signOut: () => Promise<void>;
 }
 
@@ -43,8 +43,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return error?.message ?? null;
   };
 
-  const signUp = async (email: string, password: string): Promise<string | null> => {
-    const { error } = await supabase.auth.signUp({ email, password });
+  const signUp = async (email: string, password: string, name?: string): Promise<string | null> => {
+    const { error } = await supabase.auth.signUp({ email, password, options: { data: { name } } });
     return error?.message ?? null;
   };
 
