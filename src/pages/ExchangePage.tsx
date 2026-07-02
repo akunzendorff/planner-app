@@ -42,6 +42,8 @@ function MapView({ places, dayPlaces, onMapClick, pickingMode }: MapViewProps) {
   const leafletMap = useRef<any>(null);
   const markersRef = useRef<any[]>([]);
   const polylinesRef = useRef<any[]>([]);
+  const clickHandlerRef = useRef(onMapClick);
+  clickHandlerRef.current = onMapClick;
 
   useEffect(() => {
     if (!mapRef.current || leafletMap.current) return;
@@ -65,9 +67,7 @@ function MapView({ places, dayPlaces, onMapClick, pickingMode }: MapViewProps) {
         maxZoom: 19,
       }).addTo(map);
 
-      if (onMapClick) {
-        map.on("click", (e: any) => onMapClick(e.latlng.lat, e.latlng.lng));
-      }
+      map.on("click", (e: any) => clickHandlerRef.current?.(e.latlng.lat, e.latlng.lng));
     });
 
     return () => {
