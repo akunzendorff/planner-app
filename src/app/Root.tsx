@@ -1,5 +1,6 @@
 import { Outlet, NavLink } from "react-router";
-import { CalendarDays, Target, LayoutDashboard, Wallet, Plane, LogOut, Loader2 } from "lucide-react";
+import { CalendarDays, Target, LayoutDashboard, Wallet, Plane, LogOut, Loader2, Sun, Moon } from "lucide-react";
+import { useTheme } from "next-themes";
 import { AuthProvider, useAuth } from "../features/auth";
 import { CalendarProvider } from "../features/calendar/store";
 import { FinanceProvider } from "../features/finance/store";
@@ -16,6 +17,7 @@ const NAV = [
 
 function AppShell() {
   const { user, loading, signOut } = useAuth();
+  const { theme, setTheme } = useTheme();
 
   if (loading) {
     return (
@@ -31,10 +33,10 @@ function AppShell() {
     <CalendarProvider>
       <FinanceProvider>
         <ExchangeProvider>
-          <div className="min-h-screen bg-background text-foreground" style={{ fontFamily: "'DM Sans', sans-serif" }}>
+          <div className="min-h-screen bg-background text-foreground">
             <header className="border-b border-border bg-card/60 backdrop-blur-sm sticky top-0 z-20">
               <div className="max-w-6xl mx-auto px-4 sm:px-8 py-3.5 flex items-center gap-4">
-                <span className="text-lg font-medium tracking-tight mr-2" style={{ fontFamily: "'Playfair Display', serif" }}>
+                <span className="text-lg font-semibold tracking-tight mr-2">
                   Planner
                 </span>
 
@@ -56,7 +58,14 @@ function AppShell() {
                   ))}
                 </nav>
 
-                <div className="flex items-center gap-2 flex-shrink-0">
+                <div className="flex items-center gap-1 flex-shrink-0">
+                  <button
+                    onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+                    title="Alternar tema"
+                    className="w-8 h-8 flex items-center justify-center rounded-md hover:bg-secondary transition-colors text-muted-foreground hover:text-foreground"
+                  >
+                    {theme === "dark" ? <Sun size={14} /> : <Moon size={14} />}
+                  </button>
                   <span className="text-xs text-muted-foreground hidden sm:block truncate max-w-[140px]">
                     {user.email}
                   </span>
