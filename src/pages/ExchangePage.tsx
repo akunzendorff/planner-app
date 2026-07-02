@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect, useRef } from "react";
-import { format, differenceInDays, parseISO, addDays, subDays } from "date-fns";
+import { format, differenceInDays, parseISO, addDays, subDays, addMonths, subMonths, getDaysInMonth } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import {
   Plus, X, Pencil, Check, ChevronLeft, ChevronRight,
@@ -537,17 +537,95 @@ function LugaresTab() {
   );
 }
 
+function ExDayRow({ day, dateStr, txs, saldo, symbol, onAdd, onEdit }: {
+  day: number; dateStr: string; txs: ExTx[]; saldo: number; symbol: string;
+  onAdd: (date: string) => void; onEdit: (tx: ExTx) => void;
+}) {
+  const weekDay = format(parseISO(dateStr + "T12:00:00"), "EEE", { locale: ptBR });
+  const isEmpty = txs.length === 0;
+
+  return (
+    <div className={`flex items-stretch border-b border-border group transition-colors hover:bg-secondary/20 ${isEmpty ? "opacity-50" : ""}`}>
+      <div className="w-14 flex-shrink-0 flex flex-col items-center justify-start pt-3 pb-2 border-r border-border">
+        <span className="text-sm font-medium leading-none">{String(day).padStart(2, "0")}</span>
+        <span className="text-[10px] text-muted-foreground mt-0.5 uppercase" style={{ fontFamily: "'DM Mono', monospace" }}>{weekDay}</span>
+      </div>
+      <div className="flex-1 py-1 min-w-0">
+        {isEmpty ? (
+          <div className="px-3 py-2 text-xs text-muted-foreground/50 italic">—</div>
+        ) : (
+          txs.map((tx, i) => {
+            const cat = EX_CAT_CFG[tx.category];
+            return (
+              <div key={tx.id ?? i}
+                onClick={() => onEdit(tx)}
+                className="flex items-center gap-2 px-3 py-1.5 cursor-pointer hover:bg-secondary/40 rounded-md mx-1 transition-colors">
+                <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: cat.color }} />
+                <span className="text-sm flex-1 truncate">{tx.description}</span>
+                <span className={`text-sm flex-shrink-0 tabular-nums ${tx.type === "income" ? "text-emerald-600" : ""}`}
+                  style={{ fontFamily: "'DM Mono', monospace", color: tx.type === "expense" ? cat.color : undefined }}>
+                  {tx.type === "income" ? "+" : ""}{formatFX(tx.amount, symbol)}
+                </span>
+              </div>
+            );
+          })
+        )}
+        <button onClick={() => onAdd(dateStr)}
+          className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1 px-3 py-1 text-xs text-muted-foreground hover:text-foreground">
+          <Plus size={11} /> adicionar
+        </button>
+      </div>
+      <div className={`w-28 sm:w-36 flex-shrink-0 flex items-center justify-end px-3 sm:px-4 text-sm font-medium tabular-nums ${saldo >= 0 ? "text-emerald-600" : "text-red-600"}`}
+        style={{ fontFamily: "'DM Mono', monospace" }}>
+        {formatFX(saldo, symbol)}
+      </div>
+    </div>
+  );
+}
+
 function FinancasTab() {
   const { config, setConfig, txs, addTx, updateTx, deleteTx } = useExchange();
-  const [txModal, setTxModal] = useState<{ mode: "closed" } | { mode: "add" } | { mode: "edit"; tx: ExTx }>({ mode: "closed" });
+  const [viewDate, setViewDate] = useState(() => {
+    const d = new Date(2026, 6, 1);
+    d.setDate(1);
+    return d;
+  });
+  const [txModal, setTxModal] = useState<{ mode: "closed" } | { mode: "add"; prefillDate?: string } | { mode: "edit"; tx: ExTx }>({ mode: "closed" });
   const [editingRate, setEditingRate] = useState(false);
   const [rateInput, setRateInput] = useState(String(config.exchangeRate));
+
+  const year = viewDate.getFullYear();
+  const month = viewDate.getMonth();
+
+  const monthTxs = useMemo(() =>
+    txs.filter(tx => tx.date.startsWith(`${year}-${String(month + 1).padStart(2, "0")}`)),
+    [txs, year, month],
+  );
+
+  const dayData = useMemo(() => {
+    const numDays = getDaysInMonth(viewDate);
+    const result: { day: number; dateStr: string; txs: ExTx[] }[] = [];
+    let running = 0;
+    for (let d = 1; d <= numDays; d++) {
+      const dateStr = `${year}-${String(month + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+      const dayTxs = monthTxs.filter(tx => tx.date === dateStr);
+      for (const tx of dayTxs) {
+        running += tx.type === "income" ? tx.amount : -tx.amount;
+      }
+      result.push({ day: d, dateStr, txs: dayTxs });
+    }
+    return result;
+  }, [monthTxs, year, month, viewDate]);
+
+  const monthIncome = monthTxs.filter(t => t.type === "income").reduce((s, t) => s + t.amount, 0);
+  const monthExpense = monthTxs.filter(t => t.type === "expense").reduce((s, t) => s + t.amount, 0);
+  const monthBalance = monthIncome - monthExpense;
 
   const totalSpent = txs.filter(t => t.type === "expense").reduce((s, t) => s + t.amount, 0);
   const totalIncome = txs.filter(t => t.type === "income").reduce((s, t) => s + t.amount, 0);
   const net = totalIncome - totalSpent;
   const remaining = config.budget + net;
-  const pct = Math.min((totalSpent / config.budget) * 100, 100);
+  const budgetPct = Math.min((totalSpent / config.budget) * 100, 100);
 
   const byCategory = useMemo(() => {
     const map: Record<string, number> = {};
@@ -564,111 +642,158 @@ function FinancasTab() {
   };
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-      {/* Left: transactions */}
-      <div>
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-xs text-muted-foreground uppercase tracking-widest" style={{ fontFamily: "'DM Mono', monospace" }}>Movimentações</h2>
-          <button onClick={() => setTxModal({ mode: "add" })}
-            className="flex items-center gap-1 text-sm px-3 py-1.5 rounded-md bg-primary text-primary-foreground hover:opacity-80 transition-opacity">
-            <Plus size={13} /> Adicionar
+    <div className="space-y-6">
+      {/* Month nav */}
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        <div className="flex items-center gap-2">
+          <button onClick={() => setViewDate(d => subMonths(d, 1))}
+            className="w-8 h-8 flex items-center justify-center rounded-md hover:bg-secondary transition-colors text-muted-foreground hover:text-foreground">
+            <ChevronLeft size={16} />
+          </button>
+          <span className="text-sm font-medium w-20 text-center capitalize" style={{ fontFamily: "'DM Mono', monospace" }}>
+            {format(viewDate, "MMM/yy", { locale: ptBR })}
+          </span>
+          <button onClick={() => setViewDate(d => addMonths(d, 1))}
+            className="w-8 h-8 flex items-center justify-center rounded-md hover:bg-secondary transition-colors text-muted-foreground hover:text-foreground">
+            <ChevronRight size={16} />
           </button>
         </div>
+        <button onClick={() => setTxModal({ mode: "add" })}
+          className="flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-md bg-primary text-primary-foreground hover:opacity-80 transition-opacity">
+          <Plus size={14} /> Movimentação
+        </button>
+      </div>
 
-        <div className="space-y-2">
-          {[...txs].sort((a, b) => b.date.localeCompare(a.date)).map(tx => {
-            const cat = EX_CAT_CFG[tx.category];
-            return (
-              <div key={tx.id} onClick={() => setTxModal({ mode: "edit", tx })}
-                className="group flex items-center gap-3 p-3 bg-card border border-border rounded-xl hover:border-border/70 transition-all cursor-pointer">
-                <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: cat.color }} />
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium truncate">{tx.description}</p>
-                  <p className="text-[10px] text-muted-foreground" style={{ fontFamily: "'DM Mono', monospace" }}>
-                    {format(parseISO(tx.date), "d MMM", { locale: ptBR })} · {cat.label}
-                  </p>
-                </div>
-                <span className={`text-sm font-semibold tabular-nums flex-shrink-0 ${tx.type === "income" ? "text-emerald-600" : ""}`}
-                  style={{ fontFamily: "'DM Mono', monospace", color: tx.type === "expense" ? cat.color : undefined }}>
-                  {tx.type === "income" ? "+" : ""}{formatFX(tx.amount, config.currencySymbol)}
-                </span>
-                <Pencil size={12} className="text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" />
-              </div>
-            );
-          })}
+      {/* Summary cards */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <div className="bg-card border border-border rounded-xl px-4 py-3">
+          <p className="text-[10px] text-muted-foreground uppercase tracking-widest mb-1" style={{ fontFamily: "'DM Mono', monospace" }}>Receitas</p>
+          <p className="text-sm font-semibold tabular-nums text-emerald-600" style={{ fontFamily: "'DM Mono', monospace" }}>
+            {formatFX(monthIncome, config.currencySymbol)}
+          </p>
+        </div>
+        <div className="bg-card border border-border rounded-xl px-4 py-3">
+          <p className="text-[10px] text-muted-foreground uppercase tracking-widest mb-1" style={{ fontFamily: "'DM Mono', monospace" }}>Despesas</p>
+          <p className="text-sm font-semibold tabular-nums" style={{ fontFamily: "'DM Mono', monospace", color: "#C4581B" }}>
+            {formatFX(monthExpense, config.currencySymbol)}
+          </p>
+        </div>
+        <div className="bg-card border border-border rounded-xl px-4 py-3">
+          <p className="text-[10px] text-muted-foreground uppercase tracking-widest mb-1" style={{ fontFamily: "'DM Mono', monospace" }}>Saldo do mês</p>
+          <p className={`text-sm font-semibold tabular-nums ${monthBalance >= 0 ? "text-emerald-600" : "text-red-600"}`}
+            style={{ fontFamily: "'DM Mono', monospace" }}>
+            {formatFX(monthBalance, config.currencySymbol)}
+          </p>
+        </div>
+        <div className="bg-card border border-border rounded-xl px-4 py-3">
+          <p className="text-[10px] text-muted-foreground uppercase tracking-widest mb-1" style={{ fontFamily: "'DM Mono', monospace" }}>Orçamento</p>
+          <p className="text-sm font-semibold tabular-nums" style={{ fontFamily: "'DM Mono', monospace" }}>
+            {formatFX(config.budget, config.currencySymbol)}
+          </p>
         </div>
       </div>
 
-      {/* Right: summary */}
-      <div className="space-y-4">
-        {/* Budget */}
-        <div className="bg-card border border-border rounded-2xl p-5">
-          <div className="flex items-center justify-between mb-1">
-            <p className="text-sm font-medium">Orçamento</p>
-            <span className="text-sm font-bold tabular-nums" style={{ fontFamily: "'DM Mono', monospace" }}>
-              {formatFX(config.budget, config.currencySymbol)}
-            </span>
-          </div>
-          <div className="h-2 rounded-full bg-secondary overflow-hidden mb-2">
-            <div className="h-full rounded-full transition-all duration-700"
-              style={{ width: `${pct}%`, backgroundColor: pct > 90 ? "#C4581B" : pct > 70 ? "#C4911B" : "#2C7A4B" }} />
-          </div>
-          <div className="flex items-center justify-between text-xs text-muted-foreground" style={{ fontFamily: "'DM Mono', monospace" }}>
-            <span>gasto: {formatFX(totalSpent, config.currencySymbol)}</span>
-            <span className={remaining < 0 ? "text-destructive font-medium" : "text-emerald-600 font-medium"}>
-              restante: {formatFX(remaining, config.currencySymbol)}
-            </span>
-          </div>
-        </div>
-
-        {/* Exchange rate */}
-        <div className="bg-card border border-border rounded-xl p-4">
-          <div className="flex items-center justify-between mb-1">
-            <p className="text-sm font-medium">Câmbio</p>
-            <button onClick={() => { setEditingRate(true); setRateInput(String(config.exchangeRate)); }}
-              className="text-xs text-muted-foreground hover:text-foreground transition-colors">
-              editar
-            </button>
-          </div>
-          {editingRate ? (
-            <div className="flex items-center gap-2 mt-2">
-              <span className="text-sm">{config.currencySymbol} 1 =</span>
-              <input type="number" value={rateInput} onChange={e => setRateInput(e.target.value)}
-                className="w-20 px-2 py-1 text-sm rounded bg-secondary border border-border focus:outline-none" style={{ fontFamily: "'DM Mono', monospace" }} />
-              <span className="text-sm">R$</span>
-              <button onClick={() => { setConfig({ ...config, exchangeRate: parseFloat(rateInput) || config.exchangeRate }); setEditingRate(false); }}
-                className="px-2 py-1 text-xs rounded bg-primary text-primary-foreground">ok</button>
-            </div>
-          ) : (
-            <p className="text-muted-foreground text-sm mt-1">
-              {config.currencySymbol} 1 = <strong>R$ {config.exchangeRate.toFixed(2).replace(".", ",")}</strong>
-              <span className="text-xs ml-2">(total: R$ {(totalSpent * config.exchangeRate).toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, ".")})</span>
-            </p>
-          )}
-        </div>
-
-        {/* By category */}
+      <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-6">
+        {/* Daily ledger */}
         <div className="bg-card border border-border rounded-xl overflow-hidden">
-          <div className="px-4 py-3 border-b border-border">
-            <p className="text-xs text-muted-foreground uppercase tracking-widest" style={{ fontFamily: "'DM Mono', monospace" }}>Por categoria</p>
+          <div className="flex border-b border-border bg-secondary/40">
+            <div className="w-14 flex-shrink-0 px-3 py-2 border-r border-border">
+              <span className="text-[10px] text-muted-foreground uppercase tracking-wider" style={{ fontFamily: "'DM Mono', monospace" }}>Dia</span>
+            </div>
+            <div className="flex-1 px-3 py-2">
+              <span className="text-[10px] text-muted-foreground uppercase tracking-wider" style={{ fontFamily: "'DM Mono', monospace" }}>Movimentações</span>
+            </div>
+            <div className="w-28 sm:w-36 flex-shrink-0 px-3 sm:px-4 py-2 text-right">
+              <span className="text-[10px] text-muted-foreground uppercase tracking-wider" style={{ fontFamily: "'DM Mono', monospace" }}>Saldo</span>
+            </div>
           </div>
-          {EX_CATS.map(cat => {
-            const amount = byCategory[cat] ?? 0;
-            const catPct = totalSpent > 0 ? (amount / totalSpent) * 100 : 0;
-            const cfg = EX_CAT_CFG[cat];
-            return (
-              <div key={cat} className="flex items-center gap-3 px-4 py-2.5 border-b border-border/50 last:border-0">
-                <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: cfg.color }} />
-                <span className="text-sm flex-1">{cfg.label}</span>
-                <div className="w-16 h-1.5 rounded-full bg-secondary overflow-hidden">
-                  <div className="h-full rounded-full" style={{ width: `${catPct}%`, backgroundColor: cfg.color }} />
-                </div>
-                <span className="text-xs tabular-nums text-muted-foreground w-16 text-right" style={{ fontFamily: "'DM Mono', monospace" }}>
-                  {formatFX(amount, config.currencySymbol)}
-                </span>
+          <div className="divide-y-0">
+            {dayData.map(d => (
+              <ExDayRow
+                key={d.day}
+                day={d.day} dateStr={d.dateStr} txs={d.txs}
+                saldo={dayData.slice(0, d.day).reduce((s, dd) => {
+                  return s + dd.txs.reduce((ss, tx) => ss + (tx.type === "income" ? tx.amount : -tx.amount), 0);
+                }, 0)}
+                symbol={config.currencySymbol}
+                onAdd={date => setTxModal({ mode: "add", prefillDate: date })}
+                onEdit={tx => setTxModal({ mode: "edit", tx })}
+              />
+            ))}
+          </div>
+        </div>
+
+        {/* Right sidebar */}
+        <div className="space-y-4">
+          {/* Budget progress */}
+          <div className="bg-card border border-border rounded-2xl p-5">
+            <div className="flex items-center justify-between mb-1">
+              <p className="text-sm font-medium">Orçamento total</p>
+              <span className="text-sm font-bold tabular-nums" style={{ fontFamily: "'DM Mono', monospace" }}>
+                {formatFX(config.budget, config.currencySymbol)}
+              </span>
+            </div>
+            <div className="h-2 rounded-full bg-secondary overflow-hidden mb-2">
+              <div className="h-full rounded-full transition-all duration-700"
+                style={{ width: `${budgetPct}%`, backgroundColor: budgetPct > 90 ? "#C4581B" : budgetPct > 70 ? "#C4911B" : "#2C7A4B" }} />
+            </div>
+            <div className="flex items-center justify-between text-xs text-muted-foreground" style={{ fontFamily: "'DM Mono', monospace" }}>
+              <span>gasto: {formatFX(totalSpent, config.currencySymbol)}</span>
+              <span className={remaining < 0 ? "text-destructive font-medium" : "text-emerald-600 font-medium"}>
+                restante: {formatFX(remaining, config.currencySymbol)}
+              </span>
+            </div>
+          </div>
+
+          {/* Exchange rate */}
+          <div className="bg-card border border-border rounded-xl p-4">
+            <div className="flex items-center justify-between mb-1">
+              <p className="text-sm font-medium">Câmbio</p>
+              <button onClick={() => { setEditingRate(true); setRateInput(String(config.exchangeRate)); }}
+                className="text-xs text-muted-foreground hover:text-foreground transition-colors">
+                editar
+              </button>
+            </div>
+            {editingRate ? (
+              <div className="flex items-center gap-2 mt-2">
+                <span className="text-sm">{config.currencySymbol} 1 =</span>
+                <input type="number" value={rateInput} onChange={e => setRateInput(e.target.value)}
+                  className="w-20 px-2 py-1 text-sm rounded bg-secondary border border-border focus:outline-none" style={{ fontFamily: "'DM Mono', monospace" }} />
+                <span className="text-sm">R$</span>
+                <button onClick={() => { setConfig({ ...config, exchangeRate: parseFloat(rateInput) || config.exchangeRate }); setEditingRate(false); }}
+                  className="px-2 py-1 text-xs rounded bg-primary text-primary-foreground">ok</button>
               </div>
-            );
-          })}
+            ) : (
+              <p className="text-muted-foreground text-sm mt-1">
+                {config.currencySymbol} 1 = <strong>R$ {config.exchangeRate.toFixed(2).replace(".", ",")}</strong>
+                <span className="text-xs ml-2">(total: R$ {(totalSpent * config.exchangeRate).toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, ".")})</span>
+              </p>
+            )}
+          </div>
+
+          {/* By category */}
+          <div className="bg-card border border-border rounded-xl overflow-hidden">
+            <div className="px-4 py-3 border-b border-border">
+              <p className="text-xs text-muted-foreground uppercase tracking-widest" style={{ fontFamily: "'DM Mono', monospace" }}>Por categoria</p>
+            </div>
+            {EX_CATS.map(cat => {
+              const amount = byCategory[cat] ?? 0;
+              const catPct = totalSpent > 0 ? (amount / totalSpent) * 100 : 0;
+              const cfg = EX_CAT_CFG[cat];
+              return (
+                <div key={cat} className="flex items-center gap-3 px-4 py-2.5 border-b border-border/50 last:border-0">
+                  <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: cfg.color }} />
+                  <span className="text-sm flex-1">{cfg.label}</span>
+                  <div className="w-16 h-1.5 rounded-full bg-secondary overflow-hidden">
+                    <div className="h-full rounded-full" style={{ width: `${catPct}%`, backgroundColor: cfg.color }} />
+                  </div>
+                  <span className="text-xs tabular-nums text-muted-foreground w-16 text-right" style={{ fontFamily: "'DM Mono', monospace" }}>
+                    {formatFX(amount, config.currencySymbol)}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
         </div>
       </div>
 
@@ -676,7 +801,7 @@ function FinancasTab() {
       {txModal.mode !== "closed" && (
         <TxModalEx
           mode={txModal.mode}
-          initial={txModal.mode === "edit" ? txModal.tx : undefined}
+          initial={txModal.mode === "add" ? { date: txModal.prefillDate } : txModal.tx}
           symbol={config.currencySymbol}
           onSave={handleSaveTx}
           onDelete={txModal.mode === "edit" ? () => { deleteTx(txModal.tx.id); setTxModal({ mode: "closed" }); } : undefined}
@@ -820,7 +945,7 @@ function PlaceModal({ mode, initial, onSave, onDelete, onClose }: {
 
 function TxModalEx({ mode, initial, symbol, onSave, onDelete, onClose }: {
   mode: "add" | "edit";
-  initial?: ExTx;
+  initial?: Partial<ExTx>;
   symbol: string;
   onSave: (d: Omit<ExTx, "id">) => void;
   onDelete?: () => void;
