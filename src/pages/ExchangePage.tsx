@@ -954,7 +954,7 @@ function TxModalEx({ mode, initial, symbol, onSave, onDelete, onClose }: {
   const [type, setType]         = useState<"expense" | "income">(initial?.type ?? "expense");
   const [cat, setCat]           = useState<ExCat>(initial?.category ?? "alimentacao");
   const [desc, setDesc]         = useState(initial?.description ?? "");
-  const [amount, setAmount]     = useState(initial ? String(initial.amount) : "");
+  const [amount, setAmount]     = useState(initial?.amount != null ? String(initial.amount) : "");
   const [date, setDate]         = useState(initial?.date ?? "2026-08-03");
 
   const submit = (e: React.FormEvent) => {
