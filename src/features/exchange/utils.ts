@@ -1,4 +1,10 @@
-import type { PlaceType, ItemType, ExCat } from "./types";
+import type { PlaceType, ItemType, ExCat, ExTxType } from "./types";
+
+export const EX_TX_CFG: Record<ExTxType, { label: string; color: string; letter: string; sign: 1 | -1 }> = {
+  entrada: { label: "Entrada", color: "#2C7A4B", letter: "E", sign: 1 },
+  saida:   { label: "Saída",   color: "#C4581B", letter: "S", sign: -1 },
+  diario:  { label: "Diário",  color: "#3B6FA0", letter: "D", sign: -1 },
+};
 
 export const PLACE_CFG: Record<PlaceType, { label: string; emoji: string; color: string }> = {
   attraction: { label: "Atração",     emoji: "🏛️", color: "#3B6FA0" },

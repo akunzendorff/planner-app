@@ -1,6 +1,15 @@
 export type PlaceType  = "attraction" | "restaurant" | "museum" | "park" | "shopping" | "hotel" | "other";
 export type ItemType   = "flight" | "train" | "bus" | "accommodation" | "activity" | "restaurant" | "museum" | "other";
 export type ExCat      = "alimentacao" | "transporte" | "hospedagem" | "lazer" | "compras" | "outros";
+export type ExTxType   = "entrada" | "saida" | "diario";
+export type ExRecType  = "none" | "daily" | "weekly" | "monthly";
+
+export interface ExRecurrence {
+  type: ExRecType;
+  groupId: string;
+  total: number;
+  count: number;
+}
 
 export interface WishlistPlace {
   id: string;
@@ -31,7 +40,8 @@ export interface ExTx {
   amount: number;
   date: string;
   category: ExCat;
-  type: "expense" | "income";
+  type: ExTxType;
+  recurrence?: ExRecurrence;
 }
 
 export interface ExConfig {

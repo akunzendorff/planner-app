@@ -4,12 +4,12 @@ import { ptBR } from "date-fns/locale";
 import {
   Plus, X, Pencil, Check, ChevronLeft, ChevronRight,
   MapPin, Plane, Train, Bus, Hotel, Camera, UtensilsCrossed, Clock,
-  Wallet, Globe, Trash2, Eye, EyeOff,
+  Wallet, Globe, Trash2, Eye, EyeOff, AlertTriangle,
 } from "lucide-react";
 import "leaflet/dist/leaflet.css";
 import { useExchange } from "../features/exchange/store";
-import { PLACE_CFG, ITEM_CFG, EX_CAT_CFG, formatFX } from "../features/exchange/utils";
-import type { WishlistPlace, PlaceType, ItineraryItem, ItemType, ExTx, ExCat, ExConfig } from "../features/exchange/types";
+import { PLACE_CFG, ITEM_CFG, EX_CAT_CFG, EX_TX_CFG, formatFX } from "../features/exchange/utils";
+import type { WishlistPlace, PlaceType, ItineraryItem, ItemType, ExTx, ExCat, ExConfig, ExTxType, ExRecType } from "../features/exchange/types";
 
 type ExTab = "roteiro" | "lugares" | "financas";
 
@@ -555,16 +555,21 @@ function ExDayRow({ day, dateStr, txs, saldo, symbol, onAdd, onEdit }: {
           <div className="px-3 py-2 text-xs text-muted-foreground/50 italic">—</div>
         ) : (
           txs.map((tx, i) => {
-            const cat = EX_CAT_CFG[tx.category];
+            const tcfg = EX_TX_CFG[tx.type];
+            const cat = tx.type === "entrada" ? null : EX_CAT_CFG[tx.category];
             return (
               <div key={tx.id ?? i}
                 onClick={() => onEdit(tx)}
                 className="flex items-center gap-2 px-3 py-1.5 cursor-pointer hover:bg-secondary/40 rounded-md mx-1 transition-colors">
-                <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: cat.color }} />
+                <span className="inline-flex items-center justify-center rounded-full text-white font-bold flex-shrink-0 text-[8px]"
+                  style={{ width: 20, height: 20, backgroundColor: tcfg.color }}>
+                  {tcfg.letter}
+                </span>
                 <span className="text-sm flex-1 truncate">{tx.description}</span>
-                <span className={`text-sm flex-shrink-0 tabular-nums ${tx.type === "income" ? "text-emerald-600" : ""}`}
-                  style={{ fontFamily: "'DM Mono', monospace", color: tx.type === "expense" ? cat.color : undefined }}>
-                  {tx.type === "income" ? "+" : ""}{formatFX(tx.amount, symbol)}
+                {cat && <span className="text-[10px] text-muted-foreground hidden sm:inline">{cat.label}</span>}
+                <span className={`text-sm flex-shrink-0 tabular-nums ${tx.type === "entrada" ? "text-emerald-600" : ""}`}
+                  style={{ fontFamily: "'DM Mono', monospace", color: tx.type === "entrada" ? undefined : tcfg.color }}>
+                  {tx.type === "entrada" ? "+" : ""}{formatFX(tx.amount, symbol)}
                 </span>
               </div>
             );
@@ -589,6 +594,7 @@ function FinancasTab() {
   const MAX_DATE = new Date(2026, 9, 1); // outubro
   const [viewDate, setViewDate] = useState(() => new Date(2026, 8, 1));
   const [txModal, setTxModal] = useState<{ mode: "closed" } | { mode: "add"; prefillDate?: string } | { mode: "edit"; tx: ExTx }>({ mode: "closed" });
+  const [deleteTarget, setDeleteTarget] = useState<ExTx | null>(null);
   const [editingRate, setEditingRate] = useState(false);
   const [rateInput, setRateInput] = useState(String(config.exchangeRate));
 
@@ -608,34 +614,37 @@ function FinancasTab() {
       const dateStr = `${year}-${String(month + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
       const dayTxs = monthTxs.filter(tx => tx.date === dateStr);
       for (const tx of dayTxs) {
-        running += tx.type === "income" ? tx.amount : -tx.amount;
+        running += tx.type === "entrada" ? tx.amount : -tx.amount;
       }
       result.push({ day: d, dateStr, txs: dayTxs });
     }
     return result;
   }, [monthTxs, year, month, viewDate]);
 
-  const monthIncome = monthTxs.filter(t => t.type === "income").reduce((s, t) => s + t.amount, 0);
-  const monthExpense = monthTxs.filter(t => t.type === "expense").reduce((s, t) => s + t.amount, 0);
+  const monthIncome = monthTxs.filter(t => t.type === "entrada").reduce((s, t) => s + t.amount, 0);
+  const monthExpense = monthTxs.filter(t => t.type === "saida" || t.type === "diario").reduce((s, t) => s + t.amount, 0);
   const monthBalance = monthIncome - monthExpense;
 
-  const totalSpent = txs.filter(t => t.type === "expense").reduce((s, t) => s + t.amount, 0);
-  const totalIncome = txs.filter(t => t.type === "income").reduce((s, t) => s + t.amount, 0);
+  const totalSpent = txs.filter(t => t.type === "saida" || t.type === "diario").reduce((s, t) => s + t.amount, 0);
+  const totalIncome = txs.filter(t => t.type === "entrada").reduce((s, t) => s + t.amount, 0);
   const net = totalIncome - totalSpent;
   const remaining = config.budget + net;
   const budgetPct = Math.min((totalSpent / config.budget) * 100, 100);
 
   const byCategory = useMemo(() => {
     const map: Record<string, number> = {};
-    txs.filter(t => t.type === "expense").forEach(t => {
+    txs.filter(t => t.type === "saida" || t.type === "diario").forEach(t => {
       map[t.category] = (map[t.category] ?? 0) + t.amount;
     });
     return map;
   }, [txs]);
 
-  const handleSaveTx = (data: Omit<ExTx, "id">) => {
+  const handleSaveTx = (data: Omit<ExTx, "id"> & { recType?: "none" | "daily" | "weekly" | "monthly"; recTotal?: number }) => {
     if (txModal.mode === "add") addTx(data);
-    else if (txModal.mode === "edit") updateTx(txModal.tx.id, data);
+    else if (txModal.mode === "edit") {
+      const { recType, recTotal, ...rest } = data;
+      updateTx(txModal.tx.id, rest);
+    }
     setTxModal({ mode: "closed" });
   };
 
@@ -798,14 +807,22 @@ function FinancasTab() {
       </div>
 
       {/* Tx modal */}
-      {txModal.mode !== "closed" && (
+      {txModal.mode !== "closed" && !deleteTarget && (
         <TxModalEx
           mode={txModal.mode}
           initial={txModal.mode === "add" ? { date: txModal.prefillDate } : txModal.tx}
           symbol={config.currencySymbol}
           onSave={handleSaveTx}
-          onDelete={txModal.mode === "edit" ? () => { deleteTx(txModal.tx.id); setTxModal({ mode: "closed" }); } : undefined}
+          onDelete={txModal.mode === "edit" ? () => setDeleteTarget(txModal.tx) : undefined}
           onClose={() => setTxModal({ mode: "closed" })}
+        />
+      )}
+
+      {deleteTarget && (
+        <DeleteDialogEx
+          tx={deleteTarget}
+          onConfirm={(scope) => { deleteTx(deleteTarget.id, scope); setDeleteTarget(null); setTxModal({ mode: "closed" }); }}
+          onClose={() => setDeleteTarget(null)}
         />
       )}
     </div>
@@ -943,37 +960,106 @@ function PlaceModal({ mode, initial, onSave, onDelete, onClose }: {
   );
 }
 
+const EX_TX_TYPES: ExTxType[] = ["entrada", "saida", "diario"];
+const EX_REC_OPTS: ExRecType[] = ["none", "daily", "weekly", "monthly"];
+
+function DeleteDialogEx({ tx, onConfirm, onClose }: {
+  tx: ExTx; onConfirm: (scope: "this" | "future" | "all") => void; onClose: () => void;
+}) {
+  const isRecurring = !!tx.recurrence && tx.recurrence.type !== "none";
+  return (
+    <div className="fixed inset-0 bg-foreground/20 backdrop-blur-sm z-[1000] flex items-center justify-center p-4"
+      onClick={e => e.target === e.currentTarget && onClose()}>
+      <div className="bg-card border border-border rounded-2xl shadow-xl w-full max-w-sm p-6">
+        <div className="flex items-center gap-3 mb-4">
+          <div className="w-10 h-10 rounded-full bg-destructive/10 flex items-center justify-center flex-shrink-0">
+            <AlertTriangle size={18} className="text-destructive" />
+          </div>
+          <div>
+            <h3 className="font-medium">Excluir movimentação</h3>
+            <p className="text-xs text-muted-foreground mt-0.5">{tx.description}</p>
+          </div>
+        </div>
+        <p className="text-sm text-muted-foreground mb-4">
+          {isRecurring
+            ? "Esta movimentação faz parte de uma recorrência. O que deseja excluir?"
+            : "Tem certeza que deseja excluir esta movimentação?"}
+        </p>
+        <div className="space-y-2">
+          {isRecurring && (
+            <>
+              <button onClick={() => onConfirm("this")}
+                className="w-full text-left px-4 py-2.5 text-sm rounded-lg hover:bg-secondary transition-colors border border-border">
+                <p className="font-medium">Apenas esta</p>
+                <p className="text-xs text-muted-foreground mt-0.5">Exclui somente esta ocorrência</p>
+              </button>
+              <button onClick={() => onConfirm("future")}
+                className="w-full text-left px-4 py-2.5 text-sm rounded-lg hover:bg-secondary transition-colors border border-border">
+                <p className="font-medium">Esta e as futuras</p>
+                <p className="text-xs text-muted-foreground mt-0.5">Mantém as anteriores</p>
+              </button>
+            </>
+          )}
+          <button onClick={() => onConfirm(isRecurring ? "all" : "this")}
+            className={`w-full text-left px-4 py-2.5 text-sm rounded-lg transition-colors border ${isRecurring ? "border-destructive/30 text-destructive hover:bg-destructive/10" : "border-border hover:bg-secondary"}`}>
+            <p className="font-medium">{isRecurring ? "Todas" : "Sim, excluir"}</p>
+            {isRecurring && <p className="text-xs text-muted-foreground mt-0.5">Exclui todas as ocorrências (passadas e futuras)</p>}
+          </button>
+        </div>
+        <button onClick={onClose}
+          className="w-full mt-3 py-2.5 text-sm rounded-lg hover:bg-secondary transition-colors text-muted-foreground">
+          Cancelar
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function TxModalEx({ mode, initial, symbol, onSave, onDelete, onClose }: {
   mode: "add" | "edit";
   initial?: Partial<ExTx>;
   symbol: string;
-  onSave: (d: Omit<ExTx, "id">) => void;
+  onSave: (d: Omit<ExTx, "id"> & { recType?: "none" | "daily" | "weekly" | "monthly"; recTotal?: number }) => void;
   onDelete?: () => void;
   onClose: () => void;
 }) {
-  const [type, setType]         = useState<"expense" | "income">(initial?.type ?? "expense");
+  const [type, setType]         = useState<ExTxType>(initial?.type ?? "saida");
   const [cat, setCat]           = useState<ExCat>(initial?.category ?? "alimentacao");
   const [desc, setDesc]         = useState(initial?.description ?? "");
   const [amount, setAmount]     = useState(initial?.amount != null ? String(initial.amount) : "");
-  const [date, setDate]         = useState(initial?.date ?? "2026-08-03");
+  const [date, setDate]         = useState(initial?.date ?? "2026-09-01");
+  const [recType, setRecType]   = useState<"none" | "daily" | "weekly" | "monthly">(initial?.recurrence?.type ?? "none");
+  const [recTotal, setRecTotal] = useState(initial?.recurrence ? String(initial.recurrence.total) : "12");
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
     const n = parseFloat(amount.replace(",", "."));
     if (!desc.trim() || isNaN(n)) return;
-    onSave({ type, category: cat, description: desc.trim(), amount: n, date });
+    onSave({
+      type, category: cat, description: desc.trim(), amount: n, date,
+      recType: mode === "add" ? recType : undefined,
+      recTotal: mode === "add" && recType !== "none" ? parseInt(recTotal, 10) || 2 : undefined,
+    });
   };
 
   return (
     <ModalShell title={mode === "add" ? "Nova movimentação" : "Editar"} onClose={onClose}>
       <form id="modal-form" onSubmit={submit} className="space-y-3">
-        <div className="flex gap-2">
-          {(["expense","income"] as const).map(t => (
-            <button key={t} type="button" onClick={() => setType(t)}
-              className={`flex-1 py-2 text-sm rounded-lg border transition-all ${type === t ? (t === "expense" ? "bg-destructive/10 border-destructive text-destructive font-medium" : "bg-emerald-50 border-emerald-500 text-emerald-700 font-medium") : "border-border text-muted-foreground hover:text-foreground"}`}>
-              {t === "expense" ? "Gasto" : "Entrada"}
-            </button>
-          ))}
+        <div>
+          <label className="block text-xs text-muted-foreground mb-2" style={{ fontFamily: "'DM Mono', monospace" }}>Tipo</label>
+          <div className="flex gap-2">
+            {EX_TX_TYPES.map(t => (
+              <button key={t} type="button" onClick={() => setType(t)}
+                className={`flex-1 py-2 text-sm rounded-lg border transition-all ${
+                  type === t
+                    ? "text-white border-transparent font-medium"
+                    : "border-border text-muted-foreground hover:text-foreground"
+                }`}
+                style={type === t ? { backgroundColor: EX_TX_CFG[t].color } : {}}>
+                {EX_TX_CFG[t].label}
+              </button>
+            ))}
+          </div>
         </div>
         <input value={desc} onChange={e => setDesc(e.target.value)} required autoFocus placeholder="Descrição"
           className="w-full px-3 py-2.5 text-sm rounded-lg bg-secondary border border-border focus:outline-none focus:ring-2 focus:ring-accent/30" />
@@ -986,10 +1072,39 @@ function TxModalEx({ mode, initial, symbol, onSave, onDelete, onClose }: {
           <input type="date" value={date} onChange={e => setDate(e.target.value)}
             className="px-3 py-2.5 text-sm rounded-lg bg-secondary border border-border focus:outline-none" style={{ fontFamily: "'DM Mono', monospace" }} />
         </div>
-        <select value={cat} onChange={e => setCat(e.target.value as ExCat)}
-          className="w-full px-3 py-2.5 text-sm rounded-lg bg-secondary border border-border focus:outline-none">
-          {EX_CATS.map(c => <option key={c} value={c}>{EX_CAT_CFG[c].label}</option>)}
-        </select>
+        {type !== "entrada" && (
+          <select value={cat} onChange={e => setCat(e.target.value as ExCat)}
+            className="w-full px-3 py-2.5 text-sm rounded-lg bg-secondary border border-border focus:outline-none">
+            {EX_CATS.map(c => <option key={c} value={c}>{EX_CAT_CFG[c].label}</option>)}
+          </select>
+        )}
+
+        {mode === "add" && (
+          <div className="space-y-3 pt-2 border-t border-border">
+            <p className="text-xs font-medium text-muted-foreground uppercase tracking-widest">Repetição</p>
+            <div className="flex gap-2">
+              {EX_REC_OPTS.map(r => (
+                <button key={r} type="button" onClick={() => setRecType(r)}
+                  className={`flex-1 px-2 py-2 text-xs rounded-lg border transition-all text-center ${
+                    recType === r ? "border-accent bg-accent/10 text-accent font-medium" : "border-border text-muted-foreground hover:text-foreground"
+                  }`}>
+                  {r === "none" ? "Única" : r === "daily" ? "Diária" : r === "weekly" ? "Semanal" : "Mensal"}
+                </button>
+              ))}
+            </div>
+            {recType !== "none" && (
+              <div className="flex items-center gap-3">
+                <label className="text-xs text-muted-foreground">Repetir por</label>
+                <input type="number" min={2} max={999} value={recTotal} onChange={e => setRecTotal(e.target.value)}
+                  className="w-16 px-2 py-1.5 text-sm rounded-lg bg-secondary border border-border text-center focus:outline-none" style={{ fontFamily: "'DM Mono', monospace" }} />
+                <span className="text-xs text-muted-foreground">
+                  {recType === "daily" ? "dias" : recType === "weekly" ? "semanas" : "meses"}
+                </span>
+              </div>
+            )}
+          </div>
+        )}
+
         <Actions onClose={onClose} onDelete={onDelete} saveLabel={mode === "add" ? "Adicionar" : "Salvar"} />
       </form>
     </ModalShell>

@@ -1,7 +1,33 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
+import { addDays, addWeeks, addMonths, parseISO } from "date-fns";
 import { exchangeApi } from "./api";
 import { loadFromStorage, saveToStorage } from "../../shared/lib/persist";
-import type { WishlistPlace, ItineraryItem, ExTx, ExConfig } from "./types";
+import type { WishlistPlace, ItineraryItem, ExTx, ExConfig, ExRecurrence } from "./types";
+
+function generateRecurrenceInstances(tx: Omit<ExTx, "id">): ExTx[] {
+  const rec = tx.recurrence;
+  if (!rec || rec.type === "none") return [{ id: `x${Date.now()}`, ...tx }];
+
+  const instances: ExTx[] = [];
+  const groupId = `${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+  const startDate = parseISO(tx.date);
+
+  for (let i = 0; i < rec.total; i++) {
+    let next: Date;
+    if (rec.type === "daily") next = addDays(startDate, i);
+    else if (rec.type === "weekly") next = addWeeks(startDate, i);
+    else next = addMonths(startDate, i);
+
+    const dateStr = `${next.getFullYear()}-${String(next.getMonth() + 1).padStart(2, "0")}-${String(next.getDate()).padStart(2, "0")}`;
+    instances.push({
+      id: `x${Date.now()}_${i}`,
+      ...tx,
+      date: dateStr,
+      recurrence: { ...rec, groupId, count: i + 1 },
+    });
+  }
+  return instances;
+}
 
 const DEFAULT_CONFIG: ExConfig = {
   country: "Reino Unido", city: "Londres", currency: "GBP", currencySymbol: "£",
@@ -24,9 +50,11 @@ const SEED_ITEMS: ItineraryItem[] = [
 ];
 
 const SEED_TXS: ExTx[] = [
-  { id: "x1", description: "Jantar chegada",       amount: 45,    date: "2026-08-02", category: "alimentacao", type: "expense" },
-  { id: "x2", description: "Metrô (carnet)",       amount: 17.10, date: "2026-08-03", category: "transporte",  type: "expense" },
-  { id: "x3", description: "Ingresso Torre Eiffel", amount: 28.30, date: "2026-08-03", category: "lazer",      type: "expense" },
+  { id: "x1", description: "Jantar chegada",        amount: 45,    date: "2026-09-02", category: "alimentacao", type: "saida" },
+  { id: "x2", description: "Metrô (carnet)",        amount: 17.10, date: "2026-09-03", category: "transporte",  type: "diario" },
+  { id: "x3", description: "Ingresso Torre Eiffel",  amount: 28.30, date: "2026-09-03", category: "lazer",      type: "saida" },
+  { id: "x4", description: "Mesada mensal",          amount: 500,   date: "2026-09-01", category: "outros",     type: "entrada",
+    recurrence: { type: "monthly", groupId: "rec_mesada", total: 4, count: 1 } },
 ];
 
 interface ExchangeCtx {
@@ -126,14 +154,18 @@ export function ExchangeProvider({ children }: { children: ReactNode }) {
     exchangeApi.deleteItem(id).catch(console.error);
   };
 
-  const addTx = (data: Omit<ExTx, "id">) => {
-    const t: ExTx = { id: `x${Date.now()}`, ...data };
+  const addTx = (data: Omit<ExTx, "id"> & { recType?: "none" | "daily" | "weekly" | "monthly"; recTotal?: number }) => {
+    const { recType, recTotal, ...rest } = data;
+    const withRec = recType && recType !== "none" && recTotal
+      ? { ...rest, recurrence: { type: recType, groupId: "", total: recTotal, count: 1 } as ExRecurrence }
+      : rest;
+    const instances = generateRecurrenceInstances(withRec);
     setTxs(prev => {
-      const next = [...prev, t];
+      const next = [...prev, ...instances];
       saveToStorage("exchange_txs", next);
       return next;
     });
-    exchangeApi.createTx(t).catch(console.error);
+    instances.forEach(t => exchangeApi.createTx(t).catch(console.error));
   };
   const updateTx = (id: string, data: Omit<ExTx, "id">) => {
     setTxs(prev => {
@@ -143,13 +175,34 @@ export function ExchangeProvider({ children }: { children: ReactNode }) {
     });
     exchangeApi.updateTx(id, data).catch(console.error);
   };
-  const deleteTx = (id: string) => {
+  const deleteTx = (id: string, scope: "this" | "future" | "all" = "this") => {
+    const target = txs.find(x => x.id === id);
     setTxs(prev => {
-      const next = prev.filter(x => x.id !== id);
+      if (!target?.recurrence) {
+        const next = prev.filter(x => x.id !== id);
+        saveToStorage("exchange_txs", next);
+        return next;
+      }
+      const gid = target.recurrence.groupId;
+      if (scope === "this") {
+        const next = prev.filter(x => !(x.id === id));
+        saveToStorage("exchange_txs", next);
+        return next;
+      }
+      if (scope === "future") {
+        const next = prev.filter(x => !(x.recurrence?.groupId === gid && x.date >= target.date));
+        saveToStorage("exchange_txs", next);
+        return next;
+      }
+      const next = prev.filter(x => !(x.recurrence?.groupId === gid));
       saveToStorage("exchange_txs", next);
       return next;
     });
-    exchangeApi.deleteTx(id).catch(console.error);
+    if (scope === "this") exchangeApi.deleteTx(id).catch(console.error);
+    else if (target?.recurrence) {
+      const group = txs.filter(x => x.recurrence?.groupId === target.recurrence.groupId);
+      group.forEach(t => exchangeApi.deleteTx(t.id).catch(console.error));
+    }
   };
 
   return (
