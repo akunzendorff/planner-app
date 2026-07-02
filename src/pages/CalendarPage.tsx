@@ -166,7 +166,7 @@ export default function CalendarPage() {
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_300px] gap-6 lg:gap-10">
         <div>
           <div className="flex items-center justify-between mb-6">
-            <h1 className="text-2xl sm:text-3xl font-medium capitalize tracking-tight" style={{ fontFamily: "'Playfair Display', serif" }}>
+            <h1 className="text-2xl sm:text-3xl font-medium capitalize tracking-tight">
               {view === "month" ? monthLabel : weekLabel}
             </h1>
             <div className="flex items-center gap-2">
@@ -349,7 +349,7 @@ export default function CalendarPage() {
           onClick={(e) => e.target === e.currentTarget && setModal({ mode: "closed" })}>
           <div className="bg-card border border-border rounded-2xl shadow-xl w-full max-w-sm p-6">
             <div className="flex items-center justify-between mb-5">
-              <h3 className="text-lg font-medium" style={{ fontFamily: "'Playfair Display', serif" }}>
+              <h3 className="text-lg font-medium">
                 {modal.mode === "edit" ? "Editar evento" : "Novo evento"}
               </h3>
               <button onClick={() => setModal({ mode: "closed" })} className="w-7 h-7 flex items-center justify-center rounded-md hover:bg-secondary transition-colors text-muted-foreground">

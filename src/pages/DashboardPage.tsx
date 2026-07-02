@@ -44,7 +44,7 @@ export default function DashboardPage() {
         <p className="text-xs text-muted-foreground uppercase tracking-widest mb-1" style={{ fontFamily: "'DM Mono', monospace" }}>
           {format(TODAY, "EEEE, d 'de' MMMM 'de' yyyy", { locale: ptBR })}
         </p>
-        <h1 className="text-3xl sm:text-4xl font-medium tracking-tight" style={{ fontFamily: "'Playfair Display', serif" }}>
+        <h1 className="text-3xl sm:text-4xl font-medium tracking-tight">
           Bom dia. ☀
         </h1>
         <p className="text-muted-foreground mt-2 text-sm">

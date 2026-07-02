@@ -40,17 +40,11 @@ export default function LoginPage() {
   };
 
   return (
-    <div
-      className="min-h-screen bg-background flex items-center justify-center p-4"
-      style={{ fontFamily: "'DM Sans', sans-serif" }}
-    >
+    <div className="min-h-screen bg-background flex items-center justify-center p-4">
       <div className="w-full max-w-sm">
         {/* Logo / title */}
         <div className="text-center mb-8">
-          <h1
-            className="text-3xl font-medium tracking-tight text-foreground"
-            style={{ fontFamily: "'Playfair Display', serif" }}
-          >
+          <h1 className="text-3xl font-semibold tracking-tight text-foreground">
             Planner
           </h1>
           <p className="text-sm text-muted-foreground mt-2">

@@ -66,7 +66,7 @@ function TxModal({
       onClick={e => e.target === e.currentTarget && onClose()}>
       <div className="bg-card border border-border rounded-2xl shadow-xl w-full max-w-sm p-6">
         <div className="flex items-center justify-between mb-5">
-          <h3 className="text-lg font-medium" style={{ fontFamily: "'Playfair Display', serif" }}>
+          <h3 className="text-lg font-medium">
             {isEdit ? "Editar movimentação" : "Nova movimentação"}
           </h3>
           <button onClick={onClose} className="w-7 h-7 flex items-center justify-center rounded-md hover:bg-secondary transition-colors text-muted-foreground">
@@ -186,7 +186,7 @@ function CardModal({
       onClick={e => e.target === e.currentTarget && onClose()}>
       <div className="bg-card border border-border rounded-2xl shadow-xl w-full max-w-sm p-6">
         <div className="flex items-center justify-between mb-5">
-          <h3 className="text-lg font-medium" style={{ fontFamily: "'Playfair Display', serif" }}>
+          <h3 className="text-lg font-medium">
             {isEdit ? "Editar cartão" : "Novo cartão"}
           </h3>
           <button onClick={onClose} className="w-7 h-7 flex items-center justify-center rounded-md hover:bg-secondary transition-colors text-muted-foreground">
@@ -507,10 +507,10 @@ export default function FinancePage() {
   const monthLabel = format(viewDate, "MMM/yy", { locale: ptBR });
 
   return (
-    <main className="max-w-6xl mx-auto px-4 sm:px-8 py-6 sm:py-10" style={{ fontFamily: "'DM Sans', sans-serif" }}>
+    <main className="max-w-6xl mx-auto px-4 sm:px-8 py-6 sm:py-10">
       <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
         <div className="flex items-center gap-2">
-          <h1 className="text-2xl sm:text-3xl font-medium tracking-tight" style={{ fontFamily: "'Playfair Display', serif" }}>
+          <h1 className="text-2xl sm:text-3xl font-medium tracking-tight">
             Finanças
           </h1>
         </div>

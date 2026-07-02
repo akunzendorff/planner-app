@@ -150,7 +150,7 @@ function MapView({ places, dayPlaces, onMapClick, pickingMode }: MapViewProps) {
       )}
       <div ref={mapRef} className="w-full h-full rounded-xl" style={{ minHeight: 400 }} />
       <style>{`
-        .leaflet-container { font-family: 'DM Sans', sans-serif; border-radius: 0.75rem; }
+        .leaflet-container { font-family: 'Inter', sans-serif; border-radius: 0.75rem; }
         .leaflet-popup-content-wrapper { border-radius: 0.5rem; box-shadow: 0 4px 16px rgba(0,0,0,0.12); }
         .leaflet-popup-content { font-size: 13px; line-height: 1.5; }
       `}</style>
@@ -488,7 +488,7 @@ function LugaresTab() {
         <div className="fixed inset-0 bg-foreground/20 backdrop-blur-sm z-50 flex items-center justify-center p-4"
           onClick={e => e.target === e.currentTarget && setAddToDay(null)}>
           <div className="bg-card border border-border rounded-2xl shadow-xl w-full max-w-xs p-6">
-            <h3 className="text-lg font-medium mb-4" style={{ fontFamily: "'Playfair Display', serif" }}>
+            <h3 className="text-lg font-medium mb-4">
               Adicionar ao dia
             </h3>
             <p className="text-sm font-medium mb-4">{PLACE_CFG[addToDay.type].emoji} {addToDay.name}</p>
@@ -693,7 +693,7 @@ function ModalShell({ title, onClose, children }: { title: string; onClose: () =
       onClick={e => e.target === e.currentTarget && onClose()}>
       <div className="bg-card border border-border rounded-2xl shadow-xl w-full max-w-sm p-6">
         <div className="flex items-center justify-between mb-5">
-          <h3 className="text-lg font-medium" style={{ fontFamily: "'Playfair Display', serif" }}>{title}</h3>
+          <h3 className="text-lg font-medium">{title}</h3>
           <button onClick={onClose} className="w-7 h-7 flex items-center justify-center rounded-md hover:bg-secondary transition-colors text-muted-foreground"><X size={14} /></button>
         </div>
         {children}
@@ -883,7 +883,7 @@ export default function ExchangePage() {
   const visitedCount = places.filter(p => p.visited).length;
 
   return (
-    <main className="max-w-6xl mx-auto px-4 sm:px-8 py-6 sm:py-10" style={{ fontFamily: "'DM Sans', sans-serif" }}>
+    <main className="max-w-6xl mx-auto px-4 sm:px-8 py-6 sm:py-10">
       <div className="bg-card border border-border rounded-2xl p-5 mb-6 relative overflow-hidden">
         <div className="absolute inset-0 opacity-5" style={{ background: "radial-gradient(ellipse at top right, #3B6FA0 0%, transparent 70%)" }} />
         <div className="relative flex items-start justify-between flex-wrap gap-4">
@@ -892,7 +892,7 @@ export default function ExchangePage() {
               <Globe size={16} className="text-muted-foreground" />
               <p className="text-xs text-muted-foreground uppercase tracking-widest" style={{ fontFamily: "'DM Mono', monospace" }}>Intercâmbio</p>
             </div>
-            <h1 className="text-2xl sm:text-3xl font-medium tracking-tight" style={{ fontFamily: "'Playfair Display', serif" }}>
+            <h1 className="text-2xl sm:text-3xl font-medium tracking-tight">
               {config.city}, {config.country}
             </h1>
             <p className="text-sm text-muted-foreground mt-1 capitalize">
