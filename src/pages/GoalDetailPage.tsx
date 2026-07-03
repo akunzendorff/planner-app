@@ -3,7 +3,7 @@ import { useParams, useNavigate, Link } from "react-router";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import {
-  ChevronLeft, Plus, Check, Link2, Trash2, Pencil, X, CalendarDays,
+  ChevronLeft, Plus, Check, Link2, Trash2, Pencil, X, CalendarDays, Loader2,
 } from "lucide-react";
 import { useStore, type Goal } from "../features/calendar/store";
 
@@ -63,7 +63,7 @@ function GoalForm({
 export default function GoalDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { goals, events, updateGoal, deleteGoal, toggleTask, addTask, linkTask, deleteTask } = useStore();
+  const { goals, events, loading, updateGoal, deleteGoal, toggleTask, addTask, linkTask, deleteTask } = useStore();
 
   const goal = goals.find((g) => g.id === id);
   const [editing, setEditing] = useState(false);
@@ -87,6 +87,8 @@ export default function GoalDetailPage() {
     : null;
 
   const linkedEvents = events.filter((e) => e.goalId === goal.id);
+
+  if (loading) return <main className="max-w-6xl mx-auto px-4 sm:px-8 py-16 text-center"><Loader2 size={24} className="animate-spin mx-auto text-muted-foreground" /></main>;
 
   return (
     <main className="max-w-3xl mx-auto px-4 sm:px-8 py-8 sm:py-12">

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ChevronLeft, ChevronRight, Plus, X, Clock, MapPin, Pencil, Target } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, X, Clock, MapPin, Pencil, Target, Loader2 } from "lucide-react";
 import {
   format, startOfMonth, endOfMonth, startOfWeek, endOfWeek,
   addDays, isSameMonth, isSameDay, addMonths, subMonths,
@@ -104,7 +104,7 @@ function EventForm({
 }
 
 export default function CalendarPage() {
-  const { events, goals, eventsForDay, addEvent, updateEvent, deleteEvent } = useStore();
+  const { events, goals, eventsForDay, addEvent, updateEvent, deleteEvent, loading } = useStore();
   const [view, setView] = useState<View>("month");
   const [currentDate, setCurrentDate] = useState(new Date());
   const [weekAnchor, setWeekAnchor] = useState(new Date());
@@ -160,6 +160,8 @@ export default function CalendarPage() {
       : `${format(weekStart, "d MMM", { locale: ptBR })} – ${format(we, "d MMM yyyy", { locale: ptBR })}`;
   })();
   const selectedLabel = format(selectedDate, "EEEE, d 'de' MMMM", { locale: ptBR });
+
+  if (loading) return <main className="max-w-6xl mx-auto px-4 sm:px-8 py-16 text-center"><Loader2 size={24} className="animate-spin mx-auto text-muted-foreground" /></main>;
 
   return (
     <main className="max-w-6xl mx-auto px-4 sm:px-8 py-6 sm:py-10">

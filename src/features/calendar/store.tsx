@@ -7,6 +7,7 @@ import type { CalEvent, Goal, GoalTask } from "./types";
 interface CalendarCtx {
   events: CalEvent[];
   goals:  Goal[];
+  loading: boolean;
   eventsForDay: (d: Date) => CalEvent[];
   addEvent:    (data: Omit<CalEvent, "id">) => CalEvent;
   updateEvent: (id: string, data: Omit<CalEvent, "id">) => void;
@@ -25,6 +26,7 @@ const Ctx = createContext<CalendarCtx | null>(null);
 export function CalendarProvider({ children }: { children: ReactNode }) {
   const [events, setEvents] = useState<CalEvent[]>([]);
   const [goals,  setGoals]  = useState<Goal[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     Promise.all([calendarApi.getEvents(), calendarApi.getGoals()])
@@ -32,7 +34,8 @@ export function CalendarProvider({ children }: { children: ReactNode }) {
         setEvents(savedEvents);
         setGoals(savedGoals);
       })
-      .catch(e => toast.error("Erro ao carregar calendário", { description: (e as Error).message }));
+      .catch(e => toast.error("Erro ao carregar calendário", { description: (e as Error).message }))
+      .finally(() => setLoading(false));
   }, []);
 
   const eventsForDay = (d: Date) => events.filter(e => isSameDay(e.date, d));
@@ -96,7 +99,7 @@ export function CalendarProvider({ children }: { children: ReactNode }) {
     updateGoalTasks(goalId, tasks => tasks.filter(t => t.id !== taskId));
 
   return (
-    <Ctx.Provider value={{ events, goals, eventsForDay, addEvent, updateEvent, deleteEvent, addGoal, updateGoal, deleteGoal, toggleTask, addTask, linkTask, deleteTask }}>
+    <Ctx.Provider value={{ events, goals, loading, eventsForDay, addEvent, updateEvent, deleteEvent, addGoal, updateGoal, deleteGoal, toggleTask, addTask, linkTask, deleteTask }}>
       {children}
     </Ctx.Provider>
   );

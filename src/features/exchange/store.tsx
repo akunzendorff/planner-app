@@ -34,6 +34,7 @@ interface ExchangeCtx {
   places: WishlistPlace[];
   items:  ItineraryItem[];
   txs:    ExTx[];
+  loading: boolean;
   setConfig:    (c: ExConfig) => void;
   addPlace:     (p: Omit<WishlistPlace, "id">) => void;
   updatePlace:  (id: string, p: Omit<WishlistPlace, "id">) => void;
@@ -55,6 +56,7 @@ export function ExchangeProvider({ children }: { children: ReactNode }) {
   const [places, setPlaces]      = useState<WishlistPlace[]>([]);
   const [items,  setItems]       = useState<ItineraryItem[]>([]);
   const [txs,    setTxs]         = useState<ExTx[]>([]);
+  const [loading, setLoading]    = useState(true);
 
   useEffect(() => {
     Promise.all([
@@ -67,7 +69,8 @@ export function ExchangeProvider({ children }: { children: ReactNode }) {
       setPlaces(pl);
       setItems(it);
       setTxs(tx);
-    }).catch(e => toast.error("Erro ao carregar intercâmbio", { description: (e as Error).message }));
+    }).catch(e => toast.error("Erro ao carregar intercâmbio", { description: (e as Error).message }))
+    .finally(() => setLoading(false));
   }, []);
 
   const setConfig = (c: ExConfig) => {
@@ -133,7 +136,7 @@ export function ExchangeProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <Ctx.Provider value={{ config, places, items, txs, setConfig, addPlace, updatePlace, deletePlace, addItem, updateItem, deleteItem, addTx, updateTx, deleteTx }}>
+    <Ctx.Provider value={{ config, places, items, txs, loading, setConfig, addPlace, updatePlace, deletePlace, addItem, updateItem, deleteItem, addTx, updateTx, deleteTx }}>
       {children}
     </Ctx.Provider>
   );

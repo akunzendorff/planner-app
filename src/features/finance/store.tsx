@@ -48,6 +48,7 @@ interface FinanceCtx {
   transactions: FinTx[];
   cards: CreditCard[];
   initialBalance: number;
+  loading: boolean;
   addTx:    (tx: Omit<FinTx, "id"> & { recurrenceType?: "none" | "monthly" | "installment"; recurrenceTotal?: number }) => void;
   updateTx: (id: string, tx: Omit<FinTx, "id">) => void;
   deleteTx: (id: string, scope?: DeleteScope) => void;
@@ -62,6 +63,7 @@ const Ctx = createContext<FinanceCtx | null>(null);
 export function FinanceProvider({ children }: { children: ReactNode }) {
   const [transactions, setTransactions] = useState<FinTx[]>([]);
   const [cards,        setCards]        = useState<CreditCard[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     Promise.all([financeApi.getTransactions(), financeApi.getCards()])
@@ -69,7 +71,8 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
         setTransactions(savedTxs);
         setCards(savedCards);
       })
-      .catch(e => toast.error("Erro ao carregar finanças", { description: (e as Error).message }));
+      .catch(e => toast.error("Erro ao carregar finanças", { description: (e as Error).message }))
+      .finally(() => setLoading(false));
   }, []);
 
   const addTx = (data: Omit<FinTx, "id"> & { recurrenceType?: "none" | "monthly" | "installment"; recurrenceTotal?: number }) => {
@@ -147,7 +150,7 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <Ctx.Provider value={{ transactions, cards, initialBalance: 0, addTx, updateTx, deleteTx, addCard, updateCard, deleteCard, setInitialBalance: () => {} }}>
+    <Ctx.Provider value={{ transactions, cards, initialBalance: 0, loading, addTx, updateTx, deleteTx, addCard, updateCard, deleteCard, setInitialBalance: () => {} }}>
       {children}
     </Ctx.Provider>
   );

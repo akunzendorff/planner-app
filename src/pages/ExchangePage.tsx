@@ -2,7 +2,7 @@ import { useState, useMemo, useEffect, useRef } from "react";
 import { format, differenceInDays, parseISO, addDays, subDays, addMonths, subMonths, getDaysInMonth } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import {
-  Plus, X, Pencil, Check, ChevronLeft, ChevronRight,
+  Plus, X, Pencil, Check, ChevronLeft, ChevronRight, Loader2,
   MapPin, Plane, Train, Bus, Hotel, Camera, UtensilsCrossed, Clock,
   Wallet, Globe, Trash2, Eye, EyeOff, AlertTriangle,
 } from "lucide-react";
@@ -1237,17 +1237,19 @@ function ConfigModal({ config, onSave, onClose }: { config: ExConfig; onSave: (c
 }
 
 export default function ExchangePage() {
-  const { config, setConfig, places, items } = useExchange();
+  const { config, setConfig, places, items, loading } = useExchange();
   const [tab, setTab] = useState<ExTab>("roteiro");
   const [configModalOpen, setConfigModalOpen] = useState(false);
 
-  const today = new Date(2026, 6, 2);
+  const today = new Date();
   const hasDates = config.startDate && config.endDate;
   const start = hasDates ? parseISO(config.startDate) : null;
   const end   = hasDates ? parseISO(config.endDate) : null;
   const daysToGo  = start ? differenceInDays(start, today) : 0;
   const totalDays = start && end ? differenceInDays(end, start) : 0;
   const visitedCount = places.filter(p => p.visited).length;
+
+  if (loading) return <main className="max-w-6xl mx-auto px-4 sm:px-8 py-16 text-center"><Loader2 size={24} className="animate-spin mx-auto text-muted-foreground" /></main>;
 
   return (
     <main className="max-w-6xl mx-auto px-4 sm:px-8 py-6 sm:py-10">

@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from "react";
-import { ChevronLeft, ChevronRight, Plus, X, Pencil, CreditCard as CreditCardIcon, Trash2, AlertTriangle } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, X, Pencil, CreditCard as CreditCardIcon, Trash2, AlertTriangle, Loader2 } from "lucide-react";
 import { format, addMonths, subMonths, getDaysInMonth } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { useFinance } from "../features/finance/store";
@@ -530,7 +530,7 @@ function HorizonteTab({
 }
 
 export default function FinancePage() {
-  const { transactions, cards, addTx, updateTx, deleteTx, addCard, updateCard, deleteCard } = useFinance();
+  const { transactions, cards, loading, addTx, updateTx, deleteTx, addCard, updateCard, deleteCard } = useFinance();
 
   const [tab, setTab] = useState<FinTab>("saldos");
   const [viewDate, setViewDate] = useState(new Date());
@@ -604,6 +604,8 @@ export default function FinancePage() {
   };
 
   const monthLabel = format(viewDate, "MMM/yy", { locale: ptBR });
+
+  if (loading) return <main className="max-w-6xl mx-auto px-4 sm:px-8 py-16 text-center"><Loader2 size={24} className="animate-spin mx-auto text-muted-foreground" /></main>;
 
   return (
     <main className="max-w-6xl mx-auto px-4 sm:px-8 py-6 sm:py-10">

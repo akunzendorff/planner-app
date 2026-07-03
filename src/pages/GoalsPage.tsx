@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router";
-import { Plus, X, ArrowRight, Target } from "lucide-react";
+import { Plus, X, ArrowRight, Target, Loader2 } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { useStore, type Goal } from "../features/calendar/store";
@@ -66,7 +66,7 @@ function GoalForm({
 }
 
 export default function GoalsPage() {
-  const { goals, addGoal, updateGoal, deleteGoal } = useStore();
+  const { goals, loading, addGoal, updateGoal, deleteGoal } = useStore();
   const navigate = useNavigate();
   const [modal, setModal] = useState<{ mode: "closed" } | { mode: "add" } | { mode: "edit"; goal: Goal }>({ mode: "closed" });
 
@@ -90,6 +90,8 @@ export default function GoalsPage() {
   const modalInitial = modal.mode === "edit"
     ? { title: modal.goal.title, description: modal.goal.description, color: modal.goal.color, deadline: modal.goal.deadline }
     : { title: "", description: "", color: "#C4581B", deadline: "" };
+
+  if (loading) return <main className="max-w-6xl mx-auto px-4 sm:px-8 py-16 text-center"><Loader2 size={24} className="animate-spin mx-auto text-muted-foreground" /></main>;
 
   return (
     <main className="max-w-6xl mx-auto px-4 sm:px-8 py-8 sm:py-12">

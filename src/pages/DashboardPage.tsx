@@ -1,7 +1,7 @@
 import { useNavigate } from "react-router";
 import { format, addDays, differenceInDays, parseISO, isSameDay, isToday, isTomorrow } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { ArrowRight, Clock, MapPin, Target, Plus, TrendingUp, Plane, Globe, CalendarDays } from "lucide-react";
+import { ArrowRight, Clock, MapPin, Target, Plus, TrendingUp, Plane, Globe, CalendarDays, Loader2 } from "lucide-react";
 import { useAuth } from "../features/auth";
 import { useStore } from "../features/calendar/store";
 import { useExchange } from "../features/exchange/store";
@@ -33,9 +33,9 @@ function getName(u: { email?: string; user_metadata?: Record<string, unknown> } 
 }
 
 export default function DashboardPage() {
-  const { events, goals } = useStore();
+  const { events, goals, loading: calLoading } = useStore();
   const { user } = useAuth();
-  const { config } = useExchange();
+  const { config, loading: exLoading } = useExchange();
   const navigate = useNavigate();
   const hasExchange = config.country && config.city;
 
@@ -65,6 +65,8 @@ export default function DashboardPage() {
     const d = addDays(TODAY, i);
     return { date: d, count: events.filter((e) => isSameDay(e.date, d)).length };
   });
+
+  if (calLoading && exLoading) return <main className="max-w-6xl mx-auto px-4 sm:px-8 py-16 text-center"><Loader2 size={24} className="animate-spin mx-auto text-muted-foreground" /></main>;
 
   return (
     <main className="max-w-6xl mx-auto px-4 sm:px-8 py-8 sm:py-12">
