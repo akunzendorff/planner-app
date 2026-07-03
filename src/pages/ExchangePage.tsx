@@ -776,12 +776,16 @@ function FinancasTab() {
           <div className="bg-card border border-border rounded-xl p-4">
             <div className="flex items-center justify-between mb-1">
               <p className="text-sm font-medium">Câmbio</p>
-              <button onClick={() => { setEditingRate(true); setRateInput(String(config.exchangeRate)); }}
-                className="text-xs text-muted-foreground hover:text-foreground transition-colors">
-                editar
-              </button>
+              {config.currencySymbol ? (
+                <button onClick={() => { setEditingRate(true); setRateInput(String(config.exchangeRate)); }}
+                  className="text-xs text-muted-foreground hover:text-foreground transition-colors">
+                  editar
+                </button>
+              ) : null}
             </div>
-            {editingRate ? (
+            {!config.currencySymbol ? (
+              <p className="text-muted-foreground text-sm mt-1">Configure a moeda nas configurações do intercâmbio</p>
+            ) : editingRate ? (
               <div className="flex items-center gap-2 mt-2">
                 <span className="text-sm">{config.currencySymbol} 1 =</span>
                 <input type="number" value={rateInput} onChange={e => setRateInput(e.target.value)}
@@ -981,6 +985,18 @@ function PlaceModal({ mode, initial, onSave, onDelete, onClose }: {
 
 const EX_TX_TYPES: ExTxType[] = ["entrada", "saida", "diario"];
 const EX_REC_OPTS: ExRecType[] = ["none", "daily", "weekly", "monthly"];
+const CURRENCIES = [
+  { code: "GBP", symbol: "£", name: "Libra" },
+  { code: "EUR", symbol: "€", name: "Euro" },
+  { code: "USD", symbol: "$", name: "Dólar" },
+  { code: "JPY", symbol: "¥", name: "Iene" },
+  { code: "AUD", symbol: "A$", name: "Dólar Australiano" },
+  { code: "CAD", symbol: "C$", name: "Dólar Canadense" },
+  { code: "CHF", symbol: "Fr", name: "Franco Suíço" },
+  { code: "SEK", symbol: "kr", name: "Coroa Sueca" },
+  { code: "NOK", symbol: "kr", name: "Coroa Norueguesa" },
+  { code: "DKK", symbol: "kr", name: "Coroa Dinamarquesa" },
+];
 
 function DeleteDialogEx({ tx, onConfirm, onClose }: {
   tx: ExTx; onConfirm: (scope: "this" | "future" | "all") => void; onClose: () => void;
@@ -1131,17 +1147,31 @@ function TxModalEx({ mode, initial, symbol, onSave, onDelete, onClose }: {
 }
 
 function ConfigModal({ config, onSave, onClose }: { config: ExConfig; onSave: (c: ExConfig) => void; onClose: () => void }) {
-  const [country, setCountry]       = useState(config.country);
-  const [city, setCity]             = useState(config.city);
-  const [startDate, setStartDate]   = useState(config.startDate);
-  const [endDate, setEndDate]       = useState(config.endDate);
-  const [budget, setBudget]         = useState(String(config.budget));
+  const [country, setCountry]        = useState(config.country);
+  const [city, setCity]              = useState(config.city);
+  const [startDate, setStartDate]    = useState(config.startDate);
+  const [endDate, setEndDate]        = useState(config.endDate);
+  const [budget, setBudget]          = useState(String(config.budget));
+  const [currencyCode, setCurrencyCode] = useState(config.currency || "GBP");
+  const [currencySymbol, setCurrencySymbol] = useState(config.currencySymbol || "£");
+  const [exchangeRate, setExchangeRate] = useState(String(config.exchangeRate || ""));
+
+  const activeCurrency = CURRENCIES.find(c => c.code === currencyCode);
+
+  const handleCurrencyChange = (code: string) => {
+    const found = CURRENCIES.find(c => c.code === code);
+    if (found) {
+      setCurrencyCode(found.code);
+      setCurrencySymbol(found.symbol);
+    }
+  };
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
     const n = parseFloat(budget.replace(",", "."));
-    if (!country.trim() || !city.trim() || isNaN(n)) return;
-    onSave({ country: country.trim(), city: city.trim(), currency: "GBP", currencySymbol: "£", exchangeRate: config.exchangeRate, budget: n, startDate, endDate });
+    const rate = parseFloat(exchangeRate.replace(",", "."));
+    if (!country.trim() || !city.trim() || isNaN(n) || isNaN(rate) || !currencyCode) return;
+    onSave({ country: country.trim(), city: city.trim(), currency: currencyCode, currencySymbol, exchangeRate: rate, budget: n, startDate, endDate });
   };
 
   return (
@@ -1171,8 +1201,28 @@ function ConfigModal({ config, onSave, onClose }: { config: ExConfig; onSave: (c
                 className="w-full px-3 py-2.5 text-sm rounded-lg bg-secondary border border-border focus:outline-none" style={{ fontFamily: "'DM Mono', monospace" }} />
             </div>
           </div>
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <label className="block text-xs text-muted-foreground mb-1">Moeda</label>
+              <select value={currencyCode} onChange={e => handleCurrencyChange(e.target.value)}
+                className="w-full px-3 py-2.5 text-sm rounded-lg bg-secondary border border-border focus:outline-none" style={{ fontFamily: "'DM Mono', monospace" }}>
+                {CURRENCIES.map(c => (
+                  <option key={c.code} value={c.code}>{c.symbol} — {c.name}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs text-muted-foreground mb-1">Taxa de câmbio</label>
+              <div className="flex items-center gap-1">
+                <span className="text-sm text-muted-foreground">1 {activeCurrency?.symbol ?? currencySymbol} =</span>
+                <input value={exchangeRate} onChange={e => setExchangeRate(e.target.value)} required placeholder="6,30"
+                  className="flex-1 min-w-0 px-2 py-2.5 text-sm rounded-lg bg-secondary border border-border focus:outline-none" style={{ fontFamily: "'DM Mono', monospace" }} />
+                <span className="text-sm text-muted-foreground">R$</span>
+              </div>
+            </div>
+          </div>
           <div>
-            <label className="block text-xs text-muted-foreground mb-1">Orçamento (£)</label>
+            <label className="block text-xs text-muted-foreground mb-1">Orçamento ({activeCurrency?.symbol ?? currencySymbol})</label>
             <input value={budget} onChange={e => setBudget(e.target.value)} required placeholder="3000"
               className="w-full px-3 py-2.5 text-sm rounded-lg bg-secondary border border-border focus:outline-none" style={{ fontFamily: "'DM Mono', monospace" }} />
           </div>

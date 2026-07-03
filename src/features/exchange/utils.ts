@@ -37,5 +37,6 @@ export const EX_CAT_CFG: Record<ExCat, { label: string; color: string }> = {
 };
 
 export function formatFX(amount: number, symbol: string): string {
+  if (!symbol) return "–";
   return `${symbol} ${Math.abs(amount).toFixed(2).replace(".", ",").replace(/\B(?=(\d{3})+(?!\d))/g, ".")}`;
 }
