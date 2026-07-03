@@ -108,7 +108,8 @@ function TxModal({
   const [type, setType]         = useState<TxType>(init?.type ?? "saida");
   const [description, setDesc]  = useState(init?.description ?? "");
   const [amount, setAmount]     = useState(init ? String(init.amount) : "");
-  const [date, setDate]         = useState(init?.date ?? (state.mode === "add" ? (state.prefillDate ?? "2026-07-01") : "2026-07-01"));
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const [date, setDate]         = useState(init?.date ?? (state.mode === "add" ? (state.prefillDate ?? todayStr) : todayStr));
   const [cardId, setCardId]     = useState(init?.cardId ?? (cards[0]?.id ?? ""));
   const [recType, setRecType]   = useState<"none" | "monthly" | "installment">(init?.recurrence ? init.recurrence.type : "none");
   const [recTotal, setRecTotal] = useState(init?.recurrence ? String(init.recurrence.total) : "12");
@@ -458,7 +459,7 @@ function HorizonteTab({
   cards: Parameters<typeof computeMonthData>[3];
   initialBalance: number;
 }) {
-  const TODAY = new Date(2026, 6, 2);
+  const TODAY = new Date();
   const numMonths = 3;
   const months = Array.from({ length: numMonths }, (_, i) => addMonths(startDate, i));
 
@@ -532,7 +533,7 @@ export default function FinancePage() {
   const { transactions, cards, addTx, updateTx, deleteTx, addCard, updateCard, deleteCard } = useFinance();
 
   const [tab, setTab] = useState<FinTab>("saldos");
-  const [viewDate, setViewDate] = useState(new Date(2026, 6, 1));
+  const [viewDate, setViewDate] = useState(new Date());
   const [txModal, setTxModal]   = useState<ModalState>({ mode: "closed" });
   const [cardModal, setCardModal] = useState<CardModalState>({ mode: "closed" });
   const [deleteTarget, setDeleteTarget] = useState<FinTx | null>(null);

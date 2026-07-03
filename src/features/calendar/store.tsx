@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import { isSameDay } from "date-fns";
+import { toast } from "sonner";
 import { calendarApi } from "./api";
 import type { CalEvent, Goal, GoalTask } from "./types";
 
@@ -31,7 +32,7 @@ export function CalendarProvider({ children }: { children: ReactNode }) {
         setEvents(savedEvents);
         setGoals(savedGoals);
       })
-      .catch(console.error);
+      .catch(e => toast.error("Erro ao carregar calendário", { description: (e as Error).message }));
   }, []);
 
   const eventsForDay = (d: Date) => events.filter(e => isSameDay(e.date, d));
@@ -39,24 +40,24 @@ export function CalendarProvider({ children }: { children: ReactNode }) {
   const addEvent = (data: Omit<CalEvent, "id">): CalEvent => {
     const ev: CalEvent = { id: `e${Date.now()}`, ...data };
     setEvents(p => [...p, ev]);
-    calendarApi.createEvent(ev).catch(console.error);
+    calendarApi.createEvent(ev).catch(e => toast.error("Erro ao salvar", { description: (e as Error).message }));
     return ev;
   };
 
   const updateEvent = (id: string, data: Omit<CalEvent, "id">) => {
     setEvents(p => p.map(e => e.id === id ? { id, ...data } : e));
-    calendarApi.updateEvent(id, data).catch(console.error);
+    calendarApi.updateEvent(id, data).catch(e => toast.error("Erro ao salvar", { description: (e as Error).message }));
   };
 
   const deleteEvent = (id: string) => {
     setEvents(p => p.filter(e => e.id !== id));
-    calendarApi.deleteEvent(id).catch(console.error);
+    calendarApi.deleteEvent(id).catch(e => toast.error("Erro ao salvar", { description: (e as Error).message }));
   };
 
   const addGoal = (data: Omit<Goal, "id" | "tasks">): Goal => {
     const g: Goal = { id: `g${Date.now()}`, tasks: [], ...data };
     setGoals(p => [...p, g]);
-    calendarApi.createGoal(g).catch(console.error);
+    calendarApi.createGoal(g).catch(e => toast.error("Erro ao salvar", { description: (e as Error).message }));
     return g;
   };
 
@@ -65,19 +66,19 @@ export function CalendarProvider({ children }: { children: ReactNode }) {
     if (!goal) return;
     const updated = { ...goal, ...data };
     setGoals(p => p.map(g => g.id === id ? { ...g, ...data } : g));
-    calendarApi.updateGoal(id, updated).catch(console.error);
+    calendarApi.updateGoal(id, updated).catch(e => toast.error("Erro ao salvar", { description: (e as Error).message }));
   };
 
   const deleteGoal = (id: string) => {
     setGoals(p => p.filter(g => g.id !== id));
-    calendarApi.deleteGoal(id).catch(console.error);
+    calendarApi.deleteGoal(id).catch(e => toast.error("Erro ao salvar", { description: (e as Error).message }));
   };
 
   const updateGoalTasks = (goalId: string, updater: (tasks: GoalTask[]) => GoalTask[]) => {
     setGoals(prev => {
       const updated = prev.map(g => g.id !== goalId ? g : { ...g, tasks: updater(g.tasks) });
       const goal = updated.find(g => g.id === goalId);
-      if (goal) calendarApi.updateGoal(goalId, goal).catch(console.error);
+      if (goal) calendarApi.updateGoal(goalId, goal).catch(e => toast.error("Erro ao salvar", { description: (e as Error).message }));
       return updated;
     });
   };

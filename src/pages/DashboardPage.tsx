@@ -1,11 +1,12 @@
 import { useNavigate } from "react-router";
-import { format, addDays, isSameDay, isToday, isTomorrow } from "date-fns";
+import { format, addDays, differenceInDays, parseISO, isSameDay, isToday, isTomorrow } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { ArrowRight, Clock, MapPin, Target, Plus, TrendingUp } from "lucide-react";
+import { ArrowRight, Clock, MapPin, Target, Plus, TrendingUp, Plane, Globe, CalendarDays } from "lucide-react";
 import { useAuth } from "../features/auth";
 import { useStore } from "../features/calendar/store";
+import { useExchange } from "../features/exchange/store";
 
-const TODAY = new Date(2026, 6, 2);
+const TODAY = new Date();
 
 function timeToMinutes(t: string) {
   const [h, m] = t.split(":").map(Number);
@@ -34,7 +35,19 @@ function getName(u: { email?: string; user_metadata?: Record<string, unknown> } 
 export default function DashboardPage() {
   const { events, goals } = useStore();
   const { user } = useAuth();
+  const { config } = useExchange();
   const navigate = useNavigate();
+  const hasExchange = config.country && config.city;
+
+  const exDays = hasExchange && config.startDate
+    ? differenceInDays(parseISO(config.startDate), TODAY)
+    : null;
+  const exProgress = hasExchange && config.startDate && config.endDate
+    ? Math.min(1, Math.max(0, differenceInDays(TODAY, parseISO(config.startDate)) / differenceInDays(parseISO(config.endDate), parseISO(config.startDate))))
+    : null;
+  const exTotalDays = hasExchange && config.startDate && config.endDate
+    ? differenceInDays(parseISO(config.endDate), parseISO(config.startDate))
+    : 0;
 
   const upcoming = events
     .filter((e) => e.date >= TODAY)
@@ -100,6 +113,53 @@ export default function DashboardPage() {
               })}
             </div>
           </section>
+
+          {hasExchange && (
+            <button onClick={() => navigate("/exchange")}
+              className="w-full text-left bg-card border border-border rounded-xl p-4 hover:border-border/70 transition-all">
+              <div className="flex items-center gap-2.5 mb-3">
+                <div className="w-8 h-8 rounded-lg bg-accent/15 flex items-center justify-center">
+                  <Plane size={15} className="text-accent" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium">{config.country}{config.city ? `, ${config.city}` : ""}</p>
+                  {config.startDate && (
+                    <p className="text-xs text-muted-foreground" style={{ fontFamily: "'DM Mono', monospace" }}>
+                      {format(parseISO(config.startDate), "d MMM", { locale: ptBR })} – {config.endDate ? format(parseISO(config.endDate), "d MMM", { locale: ptBR }) : "—"} · {exTotalDays}d
+                    </p>
+                  )}
+                </div>
+                <ArrowRight size={13} className="text-muted-foreground flex-shrink-0 ml-auto" />
+              </div>
+              {exDays !== null && (
+                <div className="flex items-center gap-2 text-xs">
+                  {exDays > 0 ? (
+                    <span className="text-accent font-medium">{exDays} dias até a viagem</span>
+                  ) : exDays === 0 ? (
+                    <span className="text-accent font-medium">Hoje é o grande dia!</span>
+                  ) : (
+                    <span className="text-muted-foreground">Viagem começou há {-exDays} dias</span>
+                  )}
+                </div>
+              )}
+              {exProgress !== null && exTotalDays > 0 && (
+                <div className="h-1 rounded-full bg-secondary overflow-hidden mt-2">
+                  <div className="h-full rounded-full bg-accent transition-all" style={{ width: `${exProgress * 100}%` }} />
+                </div>
+              )}
+            </button>
+          )}
+
+          {!hasExchange && (
+            <button onClick={() => navigate("/exchange")}
+              className="w-full text-left bg-card border border-dashed border-border rounded-xl p-4 hover:bg-secondary/30 transition-all">
+              <div className="flex items-center gap-2.5">
+                <Globe size={15} className="text-muted-foreground" />
+                <span className="text-sm text-muted-foreground">Configurar intercâmbio</span>
+                <ArrowRight size={13} className="text-muted-foreground flex-shrink-0 ml-auto" />
+              </div>
+            </button>
+          )}
 
           {todayEvents.length > 0 && (
             <section>

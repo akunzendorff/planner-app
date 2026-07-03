@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Outlet, NavLink } from "react-router";
 import { CalendarDays, Target, LayoutDashboard, Wallet, Plane, LogOut, Loader2, Sun, Moon, Pencil, Check, X } from "lucide-react";
+import { Toaster } from "sonner";
 import { useTheme } from "next-themes";
 import { AuthProvider, useAuth } from "../features/auth";
 import { CalendarProvider } from "../features/calendar/store";
@@ -48,6 +49,7 @@ function AppShell() {
     <CalendarProvider>
       <FinanceProvider>
         <ExchangeProvider>
+          <Toaster richColors position="bottom-left" />
           <div className="min-h-screen bg-background text-foreground">
             <header className="border-b border-border bg-card/60 backdrop-blur-sm sticky top-0 z-20">
               <div className="max-w-6xl mx-auto px-4 sm:px-8 py-3.5 flex items-center gap-4">

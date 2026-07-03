@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import { addDays, addWeeks, addMonths, parseISO } from "date-fns";
+import { toast } from "sonner";
 import { exchangeApi } from "./api";
 import type { WishlistPlace, ItineraryItem, ExTx, ExConfig, ExRecurrence } from "./types";
 
@@ -66,40 +67,40 @@ export function ExchangeProvider({ children }: { children: ReactNode }) {
       setPlaces(pl);
       setItems(it);
       setTxs(tx);
-    }).catch(console.error);
+    }).catch(e => toast.error("Erro ao carregar intercâmbio", { description: (e as Error).message }));
   }, []);
 
   const setConfig = (c: ExConfig) => {
     setConfigState(c);
-    exchangeApi.setConfig(c).catch(console.error);
+    exchangeApi.setConfig(c).catch(e => toast.error("Erro ao salvar", { description: (e as Error).message }));
   };
 
   const addPlace = (data: Omit<WishlistPlace, "id">) => {
     const p: WishlistPlace = { id: `p${Date.now()}`, ...data };
     setPlaces(prev => [...prev, p]);
-    exchangeApi.createPlace(p).catch(console.error);
+    exchangeApi.createPlace(p).catch(e => toast.error("Erro ao salvar", { description: (e as Error).message }));
   };
   const updatePlace = (id: string, data: Omit<WishlistPlace, "id">) => {
     setPlaces(prev => prev.map(x => x.id === id ? { id, ...data } : x));
-    exchangeApi.updatePlace(id, data).catch(console.error);
+    exchangeApi.updatePlace(id, data).catch(e => toast.error("Erro ao salvar", { description: (e as Error).message }));
   };
   const deletePlace = (id: string) => {
     setPlaces(prev => prev.filter(x => x.id !== id));
-    exchangeApi.deletePlace(id).catch(console.error);
+    exchangeApi.deletePlace(id).catch(e => toast.error("Erro ao salvar", { description: (e as Error).message }));
   };
 
   const addItem = (data: Omit<ItineraryItem, "id">) => {
     const i: ItineraryItem = { id: `i${Date.now()}`, ...data };
     setItems(prev => [...prev, i]);
-    exchangeApi.createItem(i).catch(console.error);
+    exchangeApi.createItem(i).catch(e => toast.error("Erro ao salvar", { description: (e as Error).message }));
   };
   const updateItem = (id: string, data: Omit<ItineraryItem, "id">) => {
     setItems(prev => prev.map(x => x.id === id ? { id, ...data } : x));
-    exchangeApi.updateItem(id, data).catch(console.error);
+    exchangeApi.updateItem(id, data).catch(e => toast.error("Erro ao salvar", { description: (e as Error).message }));
   };
   const deleteItem = (id: string) => {
     setItems(prev => prev.filter(x => x.id !== id));
-    exchangeApi.deleteItem(id).catch(console.error);
+    exchangeApi.deleteItem(id).catch(e => toast.error("Erro ao salvar", { description: (e as Error).message }));
   };
 
   const addTx = (data: Omit<ExTx, "id"> & { recType?: "none" | "daily" | "weekly" | "monthly"; recTotal?: number }) => {
@@ -109,11 +110,11 @@ export function ExchangeProvider({ children }: { children: ReactNode }) {
       : rest;
     const instances = generateRecurrenceInstances(withRec);
     setTxs(prev => [...prev, ...instances]);
-    instances.forEach(t => exchangeApi.createTx(t).catch(console.error));
+    instances.forEach(t => exchangeApi.createTx(t).catch(e => toast.error("Erro ao salvar", { description: (e as Error).message })));
   };
   const updateTx = (id: string, data: Omit<ExTx, "id">) => {
     setTxs(prev => prev.map(x => x.id === id ? { id, ...data } : x));
-    exchangeApi.updateTx(id, data).catch(console.error);
+    exchangeApi.updateTx(id, data).catch(e => toast.error("Erro ao salvar", { description: (e as Error).message }));
   };
   const deleteTx = (id: string, scope: "this" | "future" | "all" = "this") => {
     const target = txs.find(x => x.id === id);
@@ -124,10 +125,10 @@ export function ExchangeProvider({ children }: { children: ReactNode }) {
       if (scope === "future") return prev.filter(x => !(x.recurrence?.groupId === gid && x.date >= target.date));
       return prev.filter(x => !(x.recurrence?.groupId === gid));
     });
-    if (scope === "this") exchangeApi.deleteTx(id).catch(console.error);
+    if (scope === "this") exchangeApi.deleteTx(id).catch(e => toast.error("Erro ao salvar", { description: (e as Error).message }));
     else if (target?.recurrence) {
       const group = txs.filter(x => x.recurrence?.groupId === target.recurrence.groupId);
-      group.forEach(t => exchangeApi.deleteTx(t.id).catch(console.error));
+      group.forEach(t => exchangeApi.deleteTx(t.id).catch(e => toast.error("Erro ao salvar", { description: (e as Error).message })));
     }
   };
 

@@ -106,9 +106,9 @@ function EventForm({
 export default function CalendarPage() {
   const { events, goals, eventsForDay, addEvent, updateEvent, deleteEvent } = useStore();
   const [view, setView] = useState<View>("month");
-  const [currentDate, setCurrentDate] = useState(new Date(2026, 6, 1));
-  const [weekAnchor, setWeekAnchor] = useState(new Date(2026, 6, 1));
-  const [selectedDate, setSelectedDate] = useState(new Date(2026, 6, 2));
+  const [currentDate, setCurrentDate] = useState(new Date());
+  const [weekAnchor, setWeekAnchor] = useState(new Date());
+  const [selectedDate, setSelectedDate] = useState(new Date());
   const [modal, setModal] = useState<ModalState>({ mode: "closed" });
   const [prefillTime, setPrefillTime] = useState("09:00");
 
@@ -127,7 +127,7 @@ export default function CalendarPage() {
 
   const goBack = () => view === "month" ? setCurrentDate(subMonths(currentDate, 1)) : setWeekAnchor(subWeeks(weekAnchor, 1));
   const goForward = () => view === "month" ? setCurrentDate(addMonths(currentDate, 1)) : setWeekAnchor(addWeeks(weekAnchor, 1));
-  const goToday = () => { const t = new Date(2026, 6, 2); setCurrentDate(new Date(2026, 6, 1)); setWeekAnchor(t); setSelectedDate(t); };
+  const goToday = () => { const t = new Date(); setCurrentDate(new Date()); setWeekAnchor(t); setSelectedDate(t); };
   const switchView = (v: View) => { if (v === "week") setWeekAnchor(selectedDate); setView(v); };
 
   const openAdd = (date?: Date, time?: string) => {

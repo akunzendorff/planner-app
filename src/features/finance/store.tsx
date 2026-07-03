@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import { addMonths, format } from "date-fns";
+import { toast } from "sonner";
 import { financeApi } from "./api";
 import type { FinTx, CreditCard, DeleteScope } from "./types";
 
@@ -68,7 +69,7 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
         setTransactions(savedTxs);
         setCards(savedCards);
       })
-      .catch(console.error);
+      .catch(e => toast.error("Erro ao carregar finanças", { description: (e as Error).message }));
   }, []);
 
   const addTx = (data: Omit<FinTx, "id"> & { recurrenceType?: "none" | "monthly" | "installment"; recurrenceTotal?: number }) => {
@@ -82,11 +83,11 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
         recurrence: { type: recurrenceType as "monthly" | "installment", total: recurrenceTotal! },
       });
       setTransactions(p => [...p, ...instances]);
-      instances.forEach(tx => financeApi.createTransaction(tx).catch(console.error));
+      instances.forEach(tx => financeApi.createTransaction(tx).catch(e => toast.error("Erro ao salvar", { description: (e as Error).message })));
     } else {
       const tx: FinTx = { id: `f${Date.now()}`, ...rest, recurrence: undefined };
       setTransactions(p => [...p, tx]);
-      financeApi.createTransaction(tx).catch(console.error);
+      financeApi.createTransaction(tx).catch(e => toast.error("Erro ao salvar", { description: (e as Error).message }));
     }
   };
 
@@ -110,7 +111,7 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
 
       return p.map(t => t.recurrence?.groupId === gid ? { ...t, ...data } : t);
     });
-    financeApi.updateTransaction(id, data).catch(console.error);
+    financeApi.updateTransaction(id, data).catch(e => toast.error("Erro ao salvar", { description: (e as Error).message }));
   };
 
   const deleteTx = (id: string, scope: DeleteScope = "this") => {
@@ -126,23 +127,23 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
       }
       return p.filter(t => !target.recurrence || t.recurrence?.groupId !== target.recurrence?.groupId);
     });
-    financeApi.deleteTransaction(id).catch(console.error);
+    financeApi.deleteTransaction(id).catch(e => toast.error("Erro ao salvar", { description: (e as Error).message }));
   };
 
   const addCard = (data: Omit<CreditCard, "id">) => {
     const c: CreditCard = { id: `c${Date.now()}`, ...data };
     setCards(p => [...p, c]);
-    financeApi.createCard(c).catch(console.error);
+    financeApi.createCard(c).catch(e => toast.error("Erro ao salvar", { description: (e as Error).message }));
   };
 
   const updateCard = (id: string, data: Omit<CreditCard, "id">) => {
     setCards(p => p.map(c => c.id === id ? { id, ...data } : c));
-    financeApi.updateCard(id, data).catch(console.error);
+    financeApi.updateCard(id, data).catch(e => toast.error("Erro ao salvar", { description: (e as Error).message }));
   };
 
   const deleteCard = (id: string) => {
     setCards(p => p.filter(c => c.id !== id));
-    financeApi.deleteCard(id).catch(console.error);
+    financeApi.deleteCard(id).catch(e => toast.error("Erro ao salvar", { description: (e as Error).message }));
   };
 
   return (
