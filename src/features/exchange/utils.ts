@@ -42,10 +42,11 @@ export function formatFX(amount: number, symbol: string): string {
 }
 
 export async function fetchExchangeRate(currency: string): Promise<number> {
-  const res = await fetch(`https://api.frankfurter.app/latest?from=${currency}&to=BRL`);
+  const res = await fetch(`https://economia.awesomeapi.com.br/json/last/${currency}-BRL`);
   if (!res.ok) throw new Error("Falha ao buscar taxa de câmbio");
   const data = await res.json();
-  const rate = data.rates?.BRL;
-  if (!rate) throw new Error("Taxa de câmbio não disponível");
-  return rate;
+  const key = `${currency}BRL`;
+  const item = data[key];
+  if (!item?.bid) throw new Error("Taxa de câmbio não disponível");
+  return parseFloat(item.bid);
 }
