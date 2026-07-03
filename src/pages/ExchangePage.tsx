@@ -159,7 +159,7 @@ function MapView({ places, dayPlaces, onMapClick, pickingMode }: MapViewProps) {
 }
 
 function RoteirTab() {
-  const { items, addItem, updateItem, deleteItem } = useExchange();
+  const { config, items, addItem, updateItem, deleteItem } = useExchange();
   const [modal, setModal] = useState<{ mode: "closed" } | { mode: "add"; date?: string } | { mode: "edit"; item: ItineraryItem }>({ mode: "closed" });
 
   const grouped = useMemo(() => {
@@ -286,6 +286,7 @@ function RoteirTab() {
         <ItemModal
           mode={modal.mode}
           initial={modal.mode === "edit" ? modal.item : { date: (modal as any).date }}
+          defaultDate={config.startDate}
           onSave={handleSave}
           onDelete={modal.mode === "edit" ? () => { deleteItem(modal.item.id); setModal({ mode: "closed" }); } : undefined}
           onClose={() => setModal({ mode: "closed" })}
@@ -296,8 +297,15 @@ function RoteirTab() {
 }
 
 function LugaresTab() {
-  const { places, items, addPlace, updatePlace, deletePlace, addItem, updateItem } = useExchange();
-  const [selectedDate, setSelectedDate] = useState("2026-08-03");
+  const { config, places, items, addPlace, updatePlace, deletePlace, addItem, updateItem } = useExchange();
+  const [selectedDate, setSelectedDate] = useState("");
+
+  useEffect(() => {
+    if (!config.startDate) return;
+    if (!selectedDate || selectedDate < config.startDate || (config.endDate && selectedDate > config.endDate)) {
+      setSelectedDate(config.startDate);
+    }
+  }, [config.startDate, config.endDate]);
   const [filter, setFilter] = useState<"all" | "visited" | "unvisited">("all");
   const [placeModal, setPlaceModal] = useState<{ mode: "closed" } | { mode: "add" } | { mode: "edit"; place: WishlistPlace }>({ mode: "closed" });
   const [pickingFor, setPickingFor] = useState<string | null>(null); // placeId being positioned on map
@@ -420,15 +428,17 @@ function LugaresTab() {
           <div className="flex items-center justify-between mb-3">
             <p className="text-xs text-muted-foreground uppercase tracking-widest" style={{ fontFamily: "'DM Mono', monospace" }}>Planejamento do dia</p>
             <div className="flex items-center gap-1">
-              <button onClick={() => setSelectedDate(format(subDays(parseISO(selectedDate), 1), "yyyy-MM-dd"))}
-                className="w-6 h-6 flex items-center justify-center rounded hover:bg-secondary transition-colors text-muted-foreground">
+              <button onClick={() => setSelectedDate(format(subDays(parseISO(selectedDate || config.startDate), 1), "yyyy-MM-dd"))}
+                disabled={!selectedDate || !config.startDate || selectedDate <= config.startDate}
+                className="w-6 h-6 flex items-center justify-center rounded hover:bg-secondary transition-colors text-muted-foreground disabled:opacity-20 disabled:cursor-not-allowed">
                 <ChevronLeft size={13} />
               </button>
               <span className="text-xs font-medium capitalize px-1" style={{ fontFamily: "'DM Mono', monospace" }}>
-                {format(parseISO(selectedDate), "d MMM", { locale: ptBR })}
+                {selectedDate ? format(parseISO(selectedDate), "d MMM", { locale: ptBR }) : "—"}
               </span>
-              <button onClick={() => setSelectedDate(format(addDays(parseISO(selectedDate), 1), "yyyy-MM-dd"))}
-                className="w-6 h-6 flex items-center justify-center rounded hover:bg-secondary transition-colors text-muted-foreground">
+              <button onClick={() => setSelectedDate(format(addDays(parseISO(selectedDate || config.startDate), 1), "yyyy-MM-dd"))}
+                disabled={!selectedDate || !config.endDate || selectedDate >= config.endDate}
+                className="w-6 h-6 flex items-center justify-center rounded hover:bg-secondary transition-colors text-muted-foreground disabled:opacity-20 disabled:cursor-not-allowed">
                 <ChevronRight size={13} />
               </button>
             </div>
@@ -496,6 +506,7 @@ function LugaresTab() {
               <div>
                 <label className="block text-xs text-muted-foreground mb-1" style={{ fontFamily: "'DM Mono', monospace" }}>Data</label>
                 <input type="date" value={selectedDate} onChange={e => setSelectedDate(e.target.value)}
+                  min={config.startDate || undefined} max={config.endDate || undefined}
                   className="w-full px-3 py-2 text-sm rounded-lg bg-secondary border border-border focus:outline-none" style={{ fontFamily: "'DM Mono', monospace" }} />
               </div>
               <div className="grid grid-cols-2 gap-2">
@@ -865,16 +876,17 @@ function Actions({ onClose, onDelete, saveLabel = "Salvar" }: { onClose: () => v
   );
 }
 
-function ItemModal({ mode, initial, onSave, onDelete, onClose }: {
+function ItemModal({ mode, initial, defaultDate, onSave, onDelete, onClose }: {
   mode: "add" | "edit";
   initial?: Partial<ItineraryItem>;
+  defaultDate?: string;
   onSave: (d: Omit<ItineraryItem, "id">) => void;
   onDelete?: () => void;
   onClose: () => void;
 }) {
   const [type, setType]         = useState<ItemType>(initial?.type ?? "activity");
   const [title, setTitle]       = useState(initial?.title ?? "");
-  const [date, setDate]         = useState(initial?.date ?? "2026-08-03");
+  const [date, setDate]         = useState(initial?.date ?? defaultDate ?? "");
   const [startTime, setStart]   = useState(initial?.startTime ?? "");
   const [endTime, setEnd]       = useState(initial?.endTime ?? "");
   const [location, setLocation] = useState(initial?.location ?? "");
