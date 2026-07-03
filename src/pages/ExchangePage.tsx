@@ -1192,10 +1192,11 @@ export default function ExchangePage() {
   const [configModalOpen, setConfigModalOpen] = useState(false);
 
   const today = new Date(2026, 6, 2);
-  const start = parseISO(config.startDate);
-  const end   = parseISO(config.endDate);
-  const daysToGo  = differenceInDays(start, today);
-  const totalDays = differenceInDays(end, start);
+  const hasDates = config.startDate && config.endDate;
+  const start = hasDates ? parseISO(config.startDate) : null;
+  const end   = hasDates ? parseISO(config.endDate) : null;
+  const daysToGo  = start ? differenceInDays(start, today) : 0;
+  const totalDays = start && end ? differenceInDays(end, start) : 0;
   const visitedCount = places.filter(p => p.visited).length;
 
   return (
@@ -1216,7 +1217,9 @@ export default function ExchangePage() {
               {config.city}, {config.country}
             </h1>
             <p className="text-sm text-muted-foreground mt-1 capitalize">
-              {format(start, "d MMM yyyy", { locale: ptBR })} → {format(end, "d MMM yyyy", { locale: ptBR })} · {totalDays} dias
+              {hasDates
+                ? `${format(start!, "d MMM yyyy", { locale: ptBR })} → ${format(end!, "d MMM yyyy", { locale: ptBR })} · ${totalDays} dias`
+                : "Configure as datas do intercâmbio"}
             </p>
           </div>
           <div className="flex gap-4 flex-wrap">
