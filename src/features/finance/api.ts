@@ -1,9 +1,26 @@
 import { supabase } from "../../shared/lib/supabase";
 import type { FinTx, CreditCard } from "./types";
 
-async function getUserId() {
-  const { data } = await supabase.auth.getUser();
-  return data.user?.id;
+function getUserId() {
+  return supabase.auth.getUser().then(({ data }) => data.user?.id);
+}
+
+function serializeTx(tx: Omit<FinTx, "id">) {
+  const { cardId, ...rest } = tx;
+  return { ...rest, card_id: cardId ?? null };
+}
+
+function deserializeTx(raw: any): FinTx {
+  return { id: raw.id, type: raw.type, description: raw.description, amount: Number(raw.amount), date: raw.date, cardId: raw.card_id ?? undefined, recurrence: raw.recurrence ?? undefined };
+}
+
+function serializeCard(c: Omit<CreditCard, "id">) {
+  const { closingDay, dueDay, limit: l, ...rest } = c;
+  return { ...rest, closing_day: closingDay, due_day: dueDay, limit: l };
+}
+
+function deserializeCard(raw: any): CreditCard {
+  return { id: raw.id, name: raw.name, closingDay: raw.closing_day, dueDay: raw.due_day, limit: Number(raw.limit), color: raw.color };
 }
 
 const TX_TABLE = "finance_transactions";
@@ -13,18 +30,18 @@ export const financeApi = {
   async getTransactions(): Promise<FinTx[]> {
     const { data, error } = await supabase.from(TX_TABLE).select("*");
     if (error) throw error;
-    return data ?? [];
+    return (data ?? []).map(deserializeTx);
   },
 
   async createTransaction(tx: FinTx): Promise<void> {
     const user_id = await getUserId();
     if (!user_id) throw new Error("Not authenticated");
-    const { error } = await supabase.from(TX_TABLE).insert({ ...tx, user_id });
+    const { error } = await supabase.from(TX_TABLE).insert({ ...serializeTx(tx), user_id });
     if (error) throw error;
   },
 
   async updateTransaction(id: string, tx: Omit<FinTx, "id">): Promise<void> {
-    const { error } = await supabase.from(TX_TABLE).update(tx).eq("id", id);
+    const { error } = await supabase.from(TX_TABLE).update(serializeTx({ ...tx })).eq("id", id);
     if (error) throw error;
   },
 
@@ -36,18 +53,18 @@ export const financeApi = {
   async getCards(): Promise<CreditCard[]> {
     const { data, error } = await supabase.from(CARD_TABLE).select("*");
     if (error) throw error;
-    return data ?? [];
+    return (data ?? []).map(deserializeCard);
   },
 
   async createCard(c: CreditCard): Promise<void> {
     const user_id = await getUserId();
     if (!user_id) throw new Error("Not authenticated");
-    const { error } = await supabase.from(CARD_TABLE).insert({ ...c, user_id });
+    const { error } = await supabase.from(CARD_TABLE).insert({ ...serializeCard(c), user_id });
     if (error) throw error;
   },
 
   async updateCard(id: string, c: Omit<CreditCard, "id">): Promise<void> {
-    const { error } = await supabase.from(CARD_TABLE).update(c).eq("id", id);
+    const { error } = await supabase.from(CARD_TABLE).update(serializeCard({ ...c })).eq("id", id);
     if (error) throw error;
   },
 

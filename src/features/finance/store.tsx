@@ -1,29 +1,7 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import { addMonths, format } from "date-fns";
 import { financeApi } from "./api";
-import { loadFromStorage, saveToStorage } from "../../shared/lib/persist";
 import type { FinTx, CreditCard, DeleteScope } from "./types";
-
-const SEED_TXS: FinTx[] = [
-  { id: "f1",  type: "entrada",  description: "Salário",             amount: 8000,   date: "2026-07-01", recurrence: { type: "monthly", groupId: "g_sal", total: 999, count: 1 } },
-  { id: "f2",  type: "entrada",  description: "Freelance",           amount: 2500,   date: "2026-07-15", recurrence: undefined },
-  { id: "f3",  type: "saida",    description: "Aluguel",             amount: 1800,   date: "2026-07-05", recurrence: { type: "monthly", groupId: "g_alu", total: 999, count: 1 } },
-  { id: "f4",  type: "saida",    description: "Supermercado",        amount: 420,    date: "2026-07-08", recurrence: undefined },
-  { id: "f5",  type: "saida",    description: "Farmácia",            amount: 87,     date: "2026-07-12", recurrence: undefined },
-  { id: "f6",  type: "saida",    description: "Academia",            amount: 99.9,   date: "2026-07-05", recurrence: { type: "monthly", groupId: "g_aca", total: 999, count: 1 } },
-  { id: "f7",  type: "diario",   description: "Uber",                amount: 35,     date: "2026-07-03", recurrence: undefined },
-  { id: "f8",  type: "diario",   description: "iFood",               amount: 48.5,   date: "2026-07-06", recurrence: undefined },
-  { id: "f9",  type: "economia", description: "Reserva emergência",  amount: 500,    date: "2026-07-01", recurrence: { type: "monthly", groupId: "g_res", total: 999, count: 1 } },
-  { id: "f10", type: "economia", description: "Investimento CDB",    amount: 1000,   date: "2026-07-15", recurrence: undefined },
-  { id: "f11", type: "cartao",   description: "Netflix",             amount: 55.9,   date: "2026-06-25", cardId: "c1", recurrence: { type: "monthly", groupId: "g_net", total: 999, count: 1 } },
-  { id: "f12", type: "cartao",   description: "Restaurante",         amount: 180,    date: "2026-07-05", cardId: "c1", recurrence: undefined },
-  { id: "f13", type: "cartao",   description: "Roupa",               amount: 350,    date: "2026-07-08", cardId: "c2", recurrence: undefined },
-];
-
-const SEED_CARDS: CreditCard[] = [
-  { id: "c1", name: "Nubank", closingDay: 20, dueDay: 27, limit: 5000, color: "#8B47FF" },
-  { id: "c2", name: "Inter",  closingDay: 10, dueDay: 17, limit: 3000, color: "#FF7A00" },
-];
 
 function generateInstances(data: { description: string; amount: number; type: FinTx["type"]; date: string; cardId?: string; recurrence: { type: "monthly" | "installment"; total: number } }): FinTx[] {
   const groupId = `g_${Date.now()}`;
@@ -31,7 +9,6 @@ function generateInstances(data: { description: string; amount: number; type: Fi
   const total = data.recurrence.total === 0 ? 999 : data.recurrence.total;
 
   if (isMonthly) {
-    // Monthly: only 1 instance; matchesDate spreads it across months
     const d = parseDate(data.date);
     return [{
       id: `r${Date.now()}_0`,
@@ -44,7 +21,6 @@ function generateInstances(data: { description: string; amount: number; type: Fi
     }];
   }
 
-  // Installment: separate instances per month, each matches exact date only
   const baseAmount = data.amount / total;
   const instances: FinTx[] = [];
   for (let i = 0; i < total; i++) {
@@ -83,28 +59,14 @@ interface FinanceCtx {
 const Ctx = createContext<FinanceCtx | null>(null);
 
 export function FinanceProvider({ children }: { children: ReactNode }) {
-  const [transactions, setTransactions] = useState<FinTx[]>(loadFromStorage("finance_transactions", SEED_TXS));
-  const [cards,        setCards]        = useState<CreditCard[]>(loadFromStorage("finance_cards", SEED_CARDS));
+  const [transactions, setTransactions] = useState<FinTx[]>([]);
+  const [cards,        setCards]        = useState<CreditCard[]>([]);
 
   useEffect(() => {
     Promise.all([financeApi.getTransactions(), financeApi.getCards()])
       .then(([savedTxs, savedCards]) => {
-        setTransactions(prev => {
-          const existingIds = new Set(prev.map(t => t.id));
-          const newTxs = savedTxs.filter(t => !existingIds.has(t.id));
-          if (!newTxs.length) return prev;
-          const merged = [...prev, ...newTxs];
-          saveToStorage("finance_transactions", merged);
-          return merged;
-        });
-        setCards(prev => {
-          const existingIds = new Set(prev.map(c => c.id));
-          const newCards = savedCards.filter(c => !existingIds.has(c.id));
-          if (!newCards.length) return prev;
-          const merged = [...prev, ...newCards];
-          saveToStorage("finance_cards", merged);
-          return merged;
-        });
+        setTransactions(savedTxs);
+        setCards(savedCards);
       })
       .catch(console.error);
   }, []);
@@ -119,19 +81,11 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
         ...rest,
         recurrence: { type: recurrenceType as "monthly" | "installment", total: recurrenceTotal! },
       });
-      setTransactions(p => {
-        const next = [...p, ...instances];
-        saveToStorage("finance_transactions", next);
-        return next;
-      });
+      setTransactions(p => [...p, ...instances]);
       instances.forEach(tx => financeApi.createTransaction(tx).catch(console.error));
     } else {
       const tx: FinTx = { id: `f${Date.now()}`, ...rest, recurrence: undefined };
-      setTransactions(p => {
-        const next = [...p, tx];
-        saveToStorage("finance_transactions", next);
-        return next;
-      });
+      setTransactions(p => [...p, tx]);
       financeApi.createTransaction(tx).catch(console.error);
     }
   };
@@ -142,26 +96,19 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
       if (!target) return p;
 
       if (!target.recurrence || scope === "this") {
-        const next = p.map(t => t.id === id ? { ...t, ...data } : t);
-        saveToStorage("finance_transactions", next);
-        return next;
+        return p.map(t => t.id === id ? { ...t, ...data } : t);
       }
 
       const gid = target.recurrence.groupId;
       if (scope === "future") {
-        const next = p.map(t => {
+        return p.map(t => {
           if (t.recurrence?.groupId !== gid) return t;
           if (t.date < target.date && t.recurrence.count < target.recurrence.count) return t;
           return { ...t, ...data };
         });
-        saveToStorage("finance_transactions", next);
-        return next;
       }
 
-      // "all"
-      const next = p.map(t => t.recurrence?.groupId === gid ? { ...t, ...data } : t);
-      saveToStorage("finance_transactions", next);
-      return next;
+      return p.map(t => t.recurrence?.groupId === gid ? { ...t, ...data } : t);
     });
     financeApi.updateTransaction(id, data).catch(console.error);
   };
@@ -170,48 +117,31 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
     setTransactions(p => {
       const target = p.find(t => t.id === id);
       if (!target) return p;
-      let next = p;
-      if (scope === "this") {
-        next = p.filter(t => t.id !== id);
-      } else if (scope === "future") {
-        next = p.filter(t => {
+      if (scope === "this") return p.filter(t => t.id !== id);
+      if (scope === "future") {
+        return p.filter(t => {
           if (t.recurrence?.groupId !== target.recurrence?.groupId) return true;
           return t.date < target.date || t.recurrence.count < target.recurrence.count;
         });
-      } else {
-        // "all"
-        next = p.filter(t => !target.recurrence || t.recurrence?.groupId !== target.recurrence?.groupId);
       }
-      saveToStorage("finance_transactions", next);
-      return next;
+      return p.filter(t => !target.recurrence || t.recurrence?.groupId !== target.recurrence?.groupId);
     });
-    // Fire delete on the specific transaction
     financeApi.deleteTransaction(id).catch(console.error);
   };
 
   const addCard = (data: Omit<CreditCard, "id">) => {
     const c: CreditCard = { id: `c${Date.now()}`, ...data };
-    setCards(p => {
-      const next = [...p, c];
-      saveToStorage("finance_cards", next);
-      return next;
-    });
+    setCards(p => [...p, c]);
     financeApi.createCard(c).catch(console.error);
   };
+
   const updateCard = (id: string, data: Omit<CreditCard, "id">) => {
-    setCards(p => {
-      const next = p.map(c => c.id === id ? { id, ...data } : c);
-      saveToStorage("finance_cards", next);
-      return next;
-    });
+    setCards(p => p.map(c => c.id === id ? { id, ...data } : c));
     financeApi.updateCard(id, data).catch(console.error);
   };
+
   const deleteCard = (id: string) => {
-    setCards(p => {
-      const next = p.filter(c => c.id !== id);
-      saveToStorage("finance_cards", next);
-      return next;
-    });
+    setCards(p => p.filter(c => c.id !== id));
     financeApi.deleteCard(id).catch(console.error);
   };
 

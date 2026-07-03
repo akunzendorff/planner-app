@@ -52,7 +52,7 @@ CREATE TABLE IF NOT EXISTS finance_transactions (
   amount      NUMERIC     NOT NULL,
   date        TEXT        NOT NULL, -- "yyyy-MM-dd"
   card_id     TEXT,
-  recurrence  TEXT        NOT NULL DEFAULT 'none' CHECK (recurrence IN ('none','monthly')),
+  recurrence  JSONB       NOT NULL DEFAULT 'null',
   created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
@@ -154,7 +154,8 @@ CREATE TABLE IF NOT EXISTS exchange_transactions (
   amount      NUMERIC     NOT NULL,
   date        TEXT        NOT NULL,
   category    TEXT        NOT NULL DEFAULT 'outros',
-  type        TEXT        NOT NULL DEFAULT 'expense' CHECK (type IN ('expense','income')),
+  type        TEXT        NOT NULL DEFAULT 'saida' CHECK (type IN ('entrada','saida','diario')),
+  recurrence  JSONB       NOT NULL DEFAULT 'null',
   created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 

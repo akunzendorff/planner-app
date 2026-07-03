@@ -1,18 +1,17 @@
 import { supabase } from "../../shared/lib/supabase";
 import type { CalEvent, Goal } from "./types";
 
-async function getUserId() {
-  const { data } = await supabase.auth.getUser();
-  return data.user?.id;
+function getUserId() {
+  return supabase.auth.getUser().then(({ data }) => data.user?.id);
 }
 
 function serializeEvent(e: CalEvent) {
   const date = e.date instanceof Date ? e.date.toISOString().slice(0, 10) : e.date;
-  return { ...e, date };
+  return { id: e.id, title: e.title, time: e.time, location: e.location, color: e.color, date, goal_id: e.goalId ?? null };
 }
 
 function deserializeEvent(raw: any): CalEvent {
-  return { ...raw, date: new Date(raw.date) };
+  return { id: raw.id, title: raw.title, time: raw.time ?? "", location: raw.location ?? "", color: raw.color ?? "#3B6FA0", date: new Date(raw.date), goalId: raw.goal_id ?? undefined };
 }
 
 export const calendarApi = {
