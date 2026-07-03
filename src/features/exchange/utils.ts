@@ -40,3 +40,12 @@ export function formatFX(amount: number, symbol: string): string {
   if (!symbol) return "–";
   return `${symbol} ${Math.abs(amount).toFixed(2).replace(".", ",").replace(/\B(?=(\d{3})+(?!\d))/g, ".")}`;
 }
+
+export async function fetchExchangeRate(currency: string): Promise<number> {
+  const res = await fetch(`https://api.frankfurter.app/latest?from=${currency}&to=BRL`);
+  if (!res.ok) throw new Error("Falha ao buscar taxa de câmbio");
+  const data = await res.json();
+  const rate = data.rates?.BRL;
+  if (!rate) throw new Error("Taxa de câmbio não disponível");
+  return rate;
+}

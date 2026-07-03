@@ -8,7 +8,7 @@ import {
 } from "lucide-react";
 import "leaflet/dist/leaflet.css";
 import { useExchange } from "../features/exchange/store";
-import { PLACE_CFG, ITEM_CFG, EX_CAT_CFG, EX_TX_CFG, formatFX } from "../features/exchange/utils";
+import { PLACE_CFG, ITEM_CFG, EX_CAT_CFG, EX_TX_CFG, formatFX, fetchExchangeRate } from "../features/exchange/utils";
 import type { WishlistPlace, PlaceType, ItineraryItem, ItemType, ExTx, ExCat, ExConfig, ExTxType, ExRecType } from "../features/exchange/types";
 
 type ExTab = "roteiro" | "lugares" | "financas";
@@ -601,13 +601,28 @@ function ExDayRow({ day, dateStr, txs, saldo, symbol, onAdd, onEdit }: {
 
 function FinancasTab() {
   const { config, setConfig, txs, addTx, updateTx, deleteTx } = useExchange();
-  const MIN_DATE = new Date(2026, 8, 1); // setembro
-  const MAX_DATE = new Date(2026, 9, 1); // outubro
-  const [viewDate, setViewDate] = useState(() => new Date(2026, 8, 1));
+  const MIN_DATE = config.startDate ? parseISO(config.startDate) : new Date();
+  const MAX_DATE = config.endDate ? parseISO(config.endDate) : new Date();
+  const [viewDate, setViewDate] = useState(() => config.startDate ? parseISO(config.startDate) : new Date());
   const [txModal, setTxModal] = useState<{ mode: "closed" } | { mode: "add"; prefillDate?: string } | { mode: "edit"; tx: ExTx }>({ mode: "closed" });
   const [deleteTarget, setDeleteTarget] = useState<ExTx | null>(null);
-  const [editingRate, setEditingRate] = useState(false);
-  const [rateInput, setRateInput] = useState(String(config.exchangeRate));
+  const [liveRate, setLiveRate] = useState(config.exchangeRate);
+  const [rateLoading, setRateLoading] = useState(false);
+
+  useEffect(() => {
+    if (!config.currency) return;
+    let mounted = true;
+    const fetch = () => {
+      setRateLoading(true);
+      fetchExchangeRate(config.currency)
+        .then(r => { if (mounted) { setLiveRate(r); setConfig({ ...config, exchangeRate: r }); } })
+        .catch(() => {})
+        .finally(() => { if (mounted) setRateLoading(false); });
+    };
+    fetch();
+    const id = setInterval(fetch, 300_000); // 5 min
+    return () => { mounted = false; clearInterval(id); };
+  }, [config.currency]);
 
   const year = viewDate.getFullYear();
   const month = viewDate.getMonth();
@@ -774,31 +789,21 @@ function FinancasTab() {
 
           {/* Exchange rate */}
           <div className="bg-card border border-border rounded-xl p-4">
-            <div className="flex items-center justify-between mb-1">
-              <p className="text-sm font-medium">Câmbio</p>
-              {config.currencySymbol ? (
-                <button onClick={() => { setEditingRate(true); setRateInput(String(config.exchangeRate)); }}
-                  className="text-xs text-muted-foreground hover:text-foreground transition-colors">
-                  editar
-                </button>
-              ) : null}
-            </div>
+            <p className="text-sm font-medium mb-1">Câmbio</p>
             {!config.currencySymbol ? (
-              <p className="text-muted-foreground text-sm mt-1">Configure a moeda nas configurações do intercâmbio</p>
-            ) : editingRate ? (
-              <div className="flex items-center gap-2 mt-2">
-                <span className="text-sm">{config.currencySymbol} 1 =</span>
-                <input type="number" value={rateInput} onChange={e => setRateInput(e.target.value)}
-                  className="w-20 px-2 py-1 text-sm rounded bg-secondary border border-border focus:outline-none" style={{ fontFamily: "'DM Mono', monospace" }} />
-                <span className="text-sm">R$</span>
-                <button onClick={() => { setConfig({ ...config, exchangeRate: parseFloat(rateInput) || config.exchangeRate }); setEditingRate(false); }}
-                  className="px-2 py-1 text-xs rounded bg-primary text-primary-foreground">ok</button>
-              </div>
+              <p className="text-muted-foreground text-sm">Configure a moeda nas configurações do intercâmbio</p>
             ) : (
-              <p className="text-muted-foreground text-sm mt-1">
-                {config.currencySymbol} 1 = <strong>R$ {config.exchangeRate.toFixed(2).replace(".", ",")}</strong>
-                <span className="text-xs ml-2">(total: R$ {(totalSpent * config.exchangeRate).toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, ".")})</span>
-              </p>
+              <div className="flex items-center gap-1.5 text-sm" style={{ fontFamily: "'DM Mono', monospace" }}>
+                <span className="text-muted-foreground">{config.currencySymbol} 1 =</span>
+                {rateLoading ? (
+                  <Loader2 size={14} className="animate-spin text-muted-foreground" />
+                ) : (
+                  <span className="font-medium tabular-nums">R$ {liveRate.toFixed(4).replace(".", ",")}</span>
+                )}
+                <span className="text-xs text-muted-foreground ml-auto">
+                  R$ {(totalSpent * liveRate).toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, ".")}
+                </span>
+              </div>
             )}
           </div>
 
@@ -1154,9 +1159,18 @@ function ConfigModal({ config, onSave, onClose }: { config: ExConfig; onSave: (c
   const [budget, setBudget]          = useState(String(config.budget));
   const [currencyCode, setCurrencyCode] = useState(config.currency || "GBP");
   const [currencySymbol, setCurrencySymbol] = useState(config.currencySymbol || "£");
-  const [exchangeRate, setExchangeRate] = useState(String(config.exchangeRate || ""));
+  const [exchangeRate, setExchangeRate] = useState(config.exchangeRate || 0);
+  const [rateLoading, setRateLoading] = useState(false);
 
   const activeCurrency = CURRENCIES.find(c => c.code === currencyCode);
+
+  useEffect(() => {
+    setRateLoading(true);
+    fetchExchangeRate(currencyCode)
+      .then(setExchangeRate)
+      .catch(() => {})
+      .finally(() => setRateLoading(false));
+  }, [currencyCode]);
 
   const handleCurrencyChange = (code: string) => {
     const found = CURRENCIES.find(c => c.code === code);
@@ -1169,9 +1183,8 @@ function ConfigModal({ config, onSave, onClose }: { config: ExConfig; onSave: (c
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
     const n = parseFloat(budget.replace(",", "."));
-    const rate = parseFloat(exchangeRate.replace(",", "."));
-    if (!country.trim() || !city.trim() || isNaN(n) || isNaN(rate) || !currencyCode) return;
-    onSave({ country: country.trim(), city: city.trim(), currency: currencyCode, currencySymbol, exchangeRate: rate, budget: n, startDate, endDate });
+    if (!country.trim() || !city.trim() || isNaN(n) || !currencyCode || !exchangeRate) return;
+    onSave({ country: country.trim(), city: city.trim(), currency: currencyCode, currencySymbol, exchangeRate, budget: n, startDate, endDate });
   };
 
   return (
@@ -1213,11 +1226,13 @@ function ConfigModal({ config, onSave, onClose }: { config: ExConfig; onSave: (c
             </div>
             <div>
               <label className="block text-xs text-muted-foreground mb-1">Taxa de câmbio</label>
-              <div className="flex items-center gap-1">
-                <span className="text-sm text-muted-foreground">1 {activeCurrency?.symbol ?? currencySymbol} =</span>
-                <input value={exchangeRate} onChange={e => setExchangeRate(e.target.value)} required placeholder="6,30"
-                  className="flex-1 min-w-0 px-2 py-2.5 text-sm rounded-lg bg-secondary border border-border focus:outline-none" style={{ fontFamily: "'DM Mono', monospace" }} />
-                <span className="text-sm text-muted-foreground">R$</span>
+              <div className="flex items-center gap-1.5 text-sm bg-secondary rounded-lg px-3 py-2.5" style={{ fontFamily: "'DM Mono', monospace" }}>
+                <span className="text-muted-foreground">1 {activeCurrency?.symbol ?? currencySymbol} =</span>
+                {rateLoading ? (
+                  <Loader2 size={14} className="animate-spin text-muted-foreground" />
+                ) : (
+                  <span className="font-medium tabular-nums">R$ {exchangeRate.toFixed(4).replace(".", ",")}</span>
+                )}
               </div>
             </div>
           </div>
